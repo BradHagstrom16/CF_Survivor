@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - CFB Survivor Pool{% endblock %}
+
+{% block content %}
+<div class="admin-header mb-4">
+    <h1>🔧 Admin Dashboard</h1>
+    <div class="alert alert-info">
+        <strong>Pool Status:</strong> 
+        {{ active_users }} active players out of {{ total_users }} total
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h4>Season Weeks</h4>
+            </div>
+            <!-- Add this card after the Season Weeks card -->
+<!-- Auto-Pick Management Card -->
+<div class="card mt-3">
+    <div class="card-header bg-warning text-dark">
+        <h4>🤖 Auto-Pick Management</h4>
+    </div>
+    <div class="card-body">
+        <p>Auto-picks are processed automatically when users view pages after a deadline.</p>
+        <p>You can also manually trigger auto-picks for any week past its deadline:</p>
+        
+        <div class="list-group">
+            {% for week in weeks %}
+                {% if week.deadline < current_time %}  <!-- Changed from 'moment' to 'current_time' -->
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Week {{ week.week_number }}</strong>
+                            <small class="text-muted">
+                                Deadline: {{ format_deadline(week.deadline) }}
+                            </small>
+                        </div>
+                        {% if not week.is_complete %}
+                            <a href="{{ url_for('admin_process_autopicks', week_id=week.id) }}" 
+                               class="btn btn-sm btn-warning">
+                                Process Auto-picks
+                            </a>
+                        {% else %}
+                            <span class="badge bg-secondary">Complete</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+            <div class="card-body">
+                <a href="{{ url_for('create_week') }}" class="btn btn-success mb-3">
+                    ➕ Create New Week
+                </a>
+                
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Start Date</th>
+                            <th>Deadline</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for week in weeks %}
+                        <tr>
+                            <td><strong>Week {{ week.week_number }}</strong></td>
+                            <td>{{ week.start_date.strftime('%m/%d/%Y') }}</td>
+                            <td>{{ format_deadline(week.deadline) }}</td>
+                            <td>
+                                {% if week.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% elif week.is_complete %}
+                                    <span class="badge bg-secondary">Complete</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('manage_games', week_id=week.id) }}" 
+                                       class="btn btn-primary">Games</a>
+                                    
+                                    {% if not week.is_active %}
+                                        <a href="{{ url_for('activate_week', week_id=week.id) }}" 
+                                           class="btn btn-success">Activate</a>
+                                    {% endif %}
+                                    
+                                    {% if week.is_active and not week.is_complete %}
+                                        <a href="{{ url_for('mark_results', week_id=week.id) }}" 
+                                           class="btn btn-warning">Results</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center">No weeks created yet</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h4>Quick Actions</h4>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('create_week') }}" class="btn btn-primary">
+                        📅 Create New Week
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        👥 View Public Standings
+                    </a>
+                    <a href="{{ url_for('admin_users') }}" class="btn btn-info">
+    👥 Manage Users
+</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-info text-white">
+                <h4>How to Run Your Pool</h4>
+            </div>
+            <div class="card-body">
+                <ol class="small">
+                    <li>Create a new week</li>
+                    <li>Add games with point spreads</li>
+                    <li>Activate the week to allow picks</li>
+                    <li>After games finish, mark results</li>
+                    <li>System auto-deducts lives for losses</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

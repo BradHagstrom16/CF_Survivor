@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Games - Week {{ week.week_number }}{% endblock %}
+
+{% block content %}
+<h2>Manage Games - Week {{ week.week_number }}</h2>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h4>Current Games</h4>
+            </div>
+            <div class="card-body">
+                {% if games %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Away Team</th>
+                            <th>@</th>
+                            <th>Home Team</th>
+                            <th>Spread</th>
+                            <th>Game Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    {% for game in games %}
+    <tr>
+        <td>{{ game.get_away_team_display() }}</td>
+        <td>@</td>
+        <td>{{ game.get_home_team_display() }}</td>
+        <td>
+            {% if game.home_team_spread < 0 %}
+                {{ game.get_home_team_display() }} {{ game.home_team_spread }}
+            {% else %}
+                {{ game.get_away_team_display() }} -{{ game.home_team_spread }}
+            {% endif %}
+        </td>
+        <td>{{ to_pool_time(game.game_time).strftime('%m/%d %I:%M %p %Z') if game.game_time else 'TBD' }}</td>
+        <td>
+            <a href="{{ url_for('delete_game', game_id=game.id) }}" 
+               class="btn btn-sm btn-danger"
+               onclick="return confirm('Delete this game?')">Delete</a>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+                </table>
+                {% else %}
+                <p>No games added yet for this week.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4>Add New Game</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="away_team_id" class="form-label">Away Team</label>
+                        <select name="away_team_id" class="form-select" required>
+                            <option value="">Select Away Team</option>
+                            {% for team in teams %}
+                            <option value="{{ team.id }}">{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="home_team_id" class="form-label">Home Team</label>
+                        <select name="home_team_id" class="form-select" required>
+                            <option value="">Select Home Team</option>
+                            {% for team in teams %}
+                            <option value="{{ team.id }}">{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="home_spread" class="form-label">Home Team Point Spread</label>
+                        <input type="number" step="0.5" class="form-control" 
+                               name="home_spread" required>
+                        <small class="text-muted">
+                            Negative = home team favored<br>
+                            Positive = away team favored<br>
+                            Example: -7.5 means home team favored by 7.5
+                        </small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="game_time" class="form-label">Game Time</label>
+                        <input type="datetime-local" class="form-control" 
+                               name="game_time" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Add Game</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                ← Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

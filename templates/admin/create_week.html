@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Create Week - Admin{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h3>Create New Week</h3>
+            </div>
+            <div class="card-body">
+
+<div class="alert alert-info">
+    <strong>Note:</strong> All times are in {{ timezone }} timezone.
+</div>
+
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="week_number" class="form-label">Week Number</label>
+                        <input type="number" class="form-control" id="week_number" 
+                               name="week_number" min="1" max="15" required>
+                        <small class="text-muted">Typically weeks 1-15 for regular season</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="start_date" class="form-label">Week Start Date/Time</label>
+                        <input type="datetime-local" class="form-control" 
+                               id="start_date" name="start_date" required>
+                        <small class="text-muted">When this week officially begins</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="deadline" class="form-label">Pick Deadline</label>
+                        <input type="datetime-local" class="form-control" 
+                               id="deadline" name="deadline" required>
+                        <small class="text-muted">Usually Thursday or Saturday morning</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">Create Week</button>
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

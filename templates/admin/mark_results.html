@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Mark Results - Week {{ week.week_number }}{% endblock %}
+
+{% block content %}
+<h2>Mark Results - Week {{ week.week_number }}</h2>
+
+<div class="card">
+    <div class="card-header bg-warning">
+        <h4>Select Winners</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <p class="text-muted">Select the winner of each game:</p>
+            
+            {% for game in games %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5>
+    {{ game.get_away_team_display() }} @ {{ game.get_home_team_display() }}
+</h5>
+<small class="text-muted">
+    Spread: 
+    {% if game.home_team_spread < 0 %}
+        {{ game.get_home_team_display() }} {{ game.home_team_spread }}
+    {% else %}
+        {{ game.get_away_team_display() }} -{{ game.home_team_spread }}
+    {% endif %}
+</small>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" 
+                                       name="game_{{ game.id }}" value="away" 
+                                       id="away_{{ game.id }}">
+                                <label class="form-check-label" for="away_{{ game.id }}">
+    {{ game.get_away_team_display() }} Won
+</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" 
+                                       name="game_{{ game.id }}" value="home" 
+                                       id="home_{{ game.id }}">
+                               <label class="form-check-label" for="home_{{ game.id }}">
+    {{ game.get_home_team_display() }} Won
+</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <div class="alert alert-danger">
+                <strong>Warning:</strong> Submitting results will automatically process all picks 
+                and deduct lives from users who picked losing teams. This action cannot be undone.
+            </div>
+            
+            <button type="submit" class="btn btn-warning" 
+                    onclick="return confirm('Are you sure? This will process all picks and update lives.')">
+                Submit Results & Process Picks
+            </button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

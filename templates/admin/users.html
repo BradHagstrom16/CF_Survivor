@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Admin{% endblock %}
+
+{% block content %}
+<h2>User Management</h2>
+
+<div class="alert alert-info">
+    <strong>Note:</strong> Passwords are encrypted for security and cannot be viewed. 
+    You can only reset them to a new value.
+</div>
+
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <h4>Registered Users ({{ users|length }})</h4>
+    </div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Lives</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><strong>{{ user.username }}</strong></td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.lives_remaining }}</td>
+                    <td>
+                        {% if user.is_eliminated %}
+                            <span class="badge bg-danger">Eliminated</span>
+                        {% else %}
+                            <span class="badge bg-success">Active</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-warning" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#resetModal{{ user.id }}">
+                            Reset Password
+                        </button>
+                    </td>
+                </tr>
+                
+                <!-- Password Reset Modal for this user -->
+                <div class="modal fade" id="resetModal{{ user.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Reset Password for {{ user.username }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form method="POST" action="{{ url_for('admin_reset_password', user_id=user.id) }}">
+                                <div class="modal-body">
+                                    <div class="alert alert-warning">
+                                        You're about to reset the password for <strong>{{ user.username }}</strong>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">New Password</label>
+                                        <input type="text" class="form-control" name="new_password" 
+                                               value="survivor{{ user.id }}" required>
+                                        <small class="text-muted">
+                                            Default suggestion: survivor{{ user.id }}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-warning">Reset Password</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+</div>
+{% endblock %}

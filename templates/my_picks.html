@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}My Picks & Strategy - CFB Survivor Pool{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>📋 My Picks & Strategy Center</h2>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Total Picks</h5>
+                    <h2>{{ total_picks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body bg-success text-white">
+                    <h5 class="card-title">Correct</h5>
+                    <h2>{{ correct_picks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body bg-danger text-white">
+                    <h5 class="card-title">Incorrect</h5>
+                    <h2>{{ incorrect_picks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body bg-warning">
+                    <h5 class="card-title">Cumulative Spread</h5>
+                    <h2>{{ "%.1f"|format(current_user.cumulative_spread) }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Pick History Column -->
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h4>📜 Pick History with Spread Tracking</h4>
+                </div>
+                <div class="card-body">
+                    {% if user_picks %}
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Week</th>
+                                    <th>Team Picked</th>
+                                    <th>Spread</th>
+                                    <th>Result</th>
+                                    <th>Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pick in user_picks %}
+                                <tr>
+                                    <td>
+                                        <strong>Week {{ pick.week.week_number }}</strong>
+                                        {% if pick.week.is_active %}
+                                            <span class="badge bg-primary">Current</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ pick.team.name }}</td>
+                                    <td>
+                                        {% if pick.spread_data %}
+                                            {% if pick.spread_data.team_spread < 0 %}
+                                                <span class="text-success">{{ pick.spread_data.team_spread }}</span>
+                                            {% elif pick.spread_data.team_spread > 0 %}
+                                                <span class="text-danger">+{{ pick.spread_data.team_spread }}</span>
+                                            {% else %}
+                                                PK
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if pick.is_correct == True %}
+                                            <span class="badge bg-success">✓ Won</span>
+                                        {% elif pick.is_correct == False %}
+                                            <span class="badge bg-danger">✗ Lost</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if pick.spread_data %}
+                                            {% if pick.spread_data.team_spread < 0 %}
+                                                <span class="text-success">+{{ "%.1f"|format(-pick.spread_data.team_spread) }}</span>
+                                            {% elif pick.spread_data.team_spread > 0 %}
+                                                <span class="text-danger">-{{ "%.1f"|format(pick.spread_data.team_spread) }}</span>
+                                            {% else %}
+                                                0
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-info">
+                                    <td colspan="4"><strong>Total Cumulative Spread:</strong></td>
+                                    <td><strong>{{ "%.1f"|format(current_user.cumulative_spread) }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        
+                        <div class="alert alert-info mt-2">
+                            <small>
+                                <strong>How spread points work:</strong><br>
+                                • Picking favorites (negative spread) adds points to your total<br>
+                                • Picking underdogs (positive spread) subtracts points from your total<br>
+                                • Higher cumulative spread = better tiebreaker position
+                            </small>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No picks made yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Lives Status -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5>Lives Remaining</h5>
+                    <div class="d-flex align-items-center">
+                        {% for i in range(current_user.lives_remaining) %}
+                            <span style="font-size: 2rem;">❤️</span>
+                        {% endfor %}
+                        {% for i in range(2 - current_user.lives_remaining) %}
+                            <span style="font-size: 2rem;">🖤</span>
+                        {% endfor %}
+                        <span class="ms-3">
+                            ({{ current_user.lives_remaining }} of 2 lives remaining)
+                        </span>
+                    </div>
+                    {% if current_user.is_eliminated %}
+                        <div class="alert alert-danger mt-2">
+                            You have been eliminated from the pool.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Available Teams Column -->
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4>🎯 Teams Still Available ({{ available_teams|length }})</h4>
+                </div>
+                <div class="card-body">
+                    {% if available_teams %}
+                        <div class="alert alert-info">
+                            <small>These teams have not been used yet and are available for future picks.</small>
+                        </div>
+                        <div class="row">
+                            {% for team in available_teams %}
+                            <div class="col-md-6 mb-2">
+                                <div class="badge bg-success w-100 p-2">
+                                    {{ team.name }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <strong>No teams remaining!</strong> You've used all available teams.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Used Teams Reference -->
+            <div class="card mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h4>🚫 Teams Already Used ({{ used_teams|length }})</h4>
+                </div>
+                <div class="card-body">
+                    {% if used_teams %}
+                        <div class="row">
+                            {% for item in used_teams | sort(attribute='week') %}
+                            <div class="col-md-6 mb-2">
+                                <div class="badge bg-secondary w-100 p-2" 
+                                     title="Used in Week {{ item.week }}">
+                                    {{ item.team.name }} (W{{ item.week }})
+                                    {% if item.is_correct == True %}
+                                        ✓
+                                    {% elif item.is_correct == False %}
+                                        ✗
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No teams used yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Strategy Tips -->
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5>💡 Strategy Tips</h5>
+            <ul>
+                <li>You have <strong>{{ available_teams|length }}</strong> teams remaining for future weeks</li>
+                <li>Save strong teams for later weeks when fewer options are available</li>
+                <li>Consider upcoming schedules when planning your picks</li>
+                <li>Remember: teams favored by 16.5+ points won't be available that week</li>
+                <li>Your cumulative spread ({{ "%.1f"|format(current_user.cumulative_spread) }}) is used as a tiebreaker</li>
+                {% if available_teams|length < 10 %}
+                    <li class="text-warning"><strong>Warning:</strong> You're running low on available teams. Choose carefully!</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

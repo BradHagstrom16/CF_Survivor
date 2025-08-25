@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Week {{ week.week_number }} Results - CFB Survivor Pool{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>📊 Week {{ week.week_number }} Results & Picks</h2>
+    
+    <!-- Week Navigation -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="btn-group" role="group">
+                {% for w in viewable_weeks %}
+                    <a href="{{ url_for('weekly_results', week_number=w.week_number) }}" 
+                       class="btn {% if w.week_number == week.week_number %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        Week {{ w.week_number }}
+                        {% if w.is_complete %}
+                            ✓
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+            
+            <span class="float-end text-muted">
+                Deadline was: {{ format_deadline(week.deadline) }}
+            </span>
+        </div>
+    </div>
+    
+    <!-- Week Summary Cards -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6>Total Picks</h6>
+                    <h3>{{ picks|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body bg-success text-white">
+                    <h6>Correct</h6>
+                    <h3>{{ correct_picks|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body bg-danger text-white">
+                    <h6>Incorrect</h6>
+                    <h3>{{ incorrect_picks|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body bg-warning">
+                    <h6>Pending</h6>
+                    <h3>{{ pending_picks|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Eliminations Alert -->
+    {% if eliminated_this_week %}
+    <div class="alert alert-danger">
+        <h5>💀 Eliminated This Week:</h5>
+        {% for user in eliminated_this_week %}
+            <span class="badge bg-danger me-2">{{ user.username }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Main Results Table -->
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h4>All Picks for Week {{ week.week_number }}</h4>
+        </div>
+        <div class="card-body">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Team Picked</th>
+                        <th>Opponent</th>
+                        <th>Result</th>
+                        <th>Lives After</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pick in picks %}
+                    <tr class="{% if pick.is_correct == False %}table-danger{% elif pick.is_correct == True %}table-success{% endif %}">
+                        <td>
+    <strong>{{ pick.user.username }}</strong>
+    {% if pick.created_at > week.deadline %}
+        <span class="badge bg-warning" title="Auto-pick">AUTO</span>
+    {% endif %}
+</td>
+                        <td>
+                            <strong>{{ pick.team.name }}</strong>
+                        </td>
+                        <td>
+                            {% if pick.team_id in game_results %}
+                                {% set game = game_results[pick.team_id] %}
+                                {% if game.was_home %}
+                                    vs {{ game.opponent }}
+                                {% else %}
+                                    @ {{ game.opponent }}
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Unknown</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pick.is_correct == True %}
+                                <span class="badge bg-success">✓ Won</span>
+                            {% elif pick.is_correct == False %}
+                                <span class="badge bg-danger">✗ Lost</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% for i in range(pick.user.lives_remaining) %}
+                                ❤️
+                            {% endfor %}
+                            {% if pick.user.lives_remaining == 0 %}
+                                💀
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pick.user.is_eliminated %}
+                                <span class="badge bg-dark">Eliminated</span>
+                            {% else %}
+                                <span class="badge bg-success">Active</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                    <!-- Show users who didn't pick -->
+                    {% for user in users_no_pick %}
+                    <tr class="table-warning">
+                        <td>
+                            <strong>{{ user.username }}</strong>
+                        </td>
+                        <td colspan="2">
+                            <em>No pick submitted</em>
+                        </td>
+                        <td>
+                            <span class="badge bg-warning">No Pick</span>
+                        </td>
+                        <td>
+                            {% for i in range(user.lives_remaining) %}
+                                ❤️
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if user.is_eliminated %}
+                                <span class="badge bg-dark">Eliminated</span>
+                            {% else %}
+                                <span class="badge bg-warning">Active</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Pick Distribution -->
+    <div class="card mt-3">
+        <div class="card-header bg-info text-white">
+            <h5>📈 Pick Distribution</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% set pick_counts = {} %}
+                {% for pick in picks %}
+                    {% set team_name = pick.team.name %}
+                    {% if team_name in pick_counts %}
+                        {% set _ = pick_counts.update({team_name: pick_counts[team_name] + 1}) %}
+                    {% else %}
+                        {% set _ = pick_counts.update({team_name: 1}) %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% for team, count in pick_counts.items() | sort(attribute=1, reverse=True) %}
+                <div class="col-md-3 mb-2">
+                    <div class="badge bg-info w-100 p-2">
+                        {{ team }}: {{ count }} pick{% if count != 1 %}s{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
