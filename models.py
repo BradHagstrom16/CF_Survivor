@@ -1,6 +1,6 @@
 """Database models for the survivor pool"""
 
-from flask_sqlalchemy import db
+from app import db
 from flask_login import UserMixin
 from datetime import datetime
 
@@ -100,4 +100,5 @@ class Pick(db.Model):
     team = db.relationship('Team', backref='picks')
     
     # Ensure user can only pick once per week
+
     __table_args__ = (db.UniqueConstraint('user_id', 'week_id'),)
