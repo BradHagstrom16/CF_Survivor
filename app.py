@@ -36,9 +36,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 
-# Initialize database with app
-db.init_app(app)
-
 # Make timezone functions available in all templates
 @app.context_processor
 def inject_timezone_functions():
@@ -798,4 +795,5 @@ def check_and_process_autopicks():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Create tables if they don't exist
+
     app.run(debug=True)
