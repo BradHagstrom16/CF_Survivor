@@ -20,4 +20,4 @@ class ProductionConfig(Config):
     """Production configuration - PythonAnywhere"""
     DEBUG = False
     # PythonAnywhere requires full path
-    SQLALCHEMY_DATABASE_URI = 'sqlite:////home/B1GBRAD/cfb-survivor-pool/picks.db'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:////home/B1GBRAD/CF_Survivor/picks.db'
