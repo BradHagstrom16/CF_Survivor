@@ -217,6 +217,25 @@ def my_picks():
     # Get all user's picks with week and team information
     user_picks = Pick.query.filter_by(user_id=current_user.id).join(Week).order_by(Week.week_number).all()
     
+    # Add spread data to each pick
+    for pick in user_picks:
+        game = Game.query.filter_by(week_id=pick.week_id).filter(
+            db.or_(Game.home_team_id == pick.team_id, 
+                   Game.away_team_id == pick.team_id)
+        ).first()
+        
+        if game:
+            # Determine the spread for the picked team
+            if pick.team_id == game.home_team_id:
+                team_spread = game.home_team_spread
+            else:  # Away team
+                team_spread = -game.home_team_spread
+            
+            # Attach spread data to the pick object
+            pick.spread_data = {'team_spread': team_spread}
+        else:
+            pick.spread_data = None
+    
     # Get all teams
     all_teams = Team.query.order_by(Team.name).all()
     
