@@ -283,75 +283,167 @@ def my_picks():
 @login_required
 def make_pick(week_number):
     """Page for making picks for a specific week"""
+    import pytz
+    from datetime import datetime
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    current_time = datetime.now(chicago_tz)
+    
+    # Check if user is eliminated
     if current_user.is_eliminated:
         flash('Sorry, you have been eliminated from the pool.', 'error')
         return redirect(url_for('index'))
     
+    # Get the week
     week = Week.query.filter_by(week_number=week_number).first_or_404()
     
-    if is_past_deadline(week.deadline):
+    # Check week deadline
+    deadline = week.deadline
+    if deadline.tzinfo is None:
+        deadline = chicago_tz.localize(deadline)
+    
+    if current_time > deadline:
         flash('The deadline for this week has passed.', 'error')
         return redirect(url_for('index'))
     
-    # Check if user already picked this week
-    existing_pick = Pick.query.filter_by(user_id=current_user.id, week_id=week.id).first()
+    # Get user's existing pick for this week
+    existing_pick = Pick.query.filter_by(
+        user_id=current_user.id,
+        week_id=week.id
+    ).first()
     
-    # Get all teams user has already picked in PREVIOUS weeks (not including current week)
-    used_teams = db.session.query(Pick.team_id).filter(
-        Pick.user_id == current_user.id,
-        Pick.week_id != week.id  # Exclude current week so they can change their pick
-    ).all()
-    used_team_ids = [t[0] for t in used_teams]
-    
-    # Get all games for this week and find eligible teams
-    games = Game.query.filter_by(week_id=week.id).all()
-    eligible_teams = []
-    
-    for game in games:
-        # Check home team eligibility
-        if game.home_team:
-            if game.home_team_spread > -16.5 and game.home_team_id not in used_team_ids:
-                if game.home_team not in eligible_teams:
-                    eligible_teams.append(game.home_team)
+    # If user has existing pick, check if that game has started
+    if existing_pick:
+        existing_game = Game.query.filter_by(week_id=week.id).filter(
+            db.or_(Game.home_team_id == existing_pick.team_id,
+                   Game.away_team_id == existing_pick.team_id)
+        ).first()
         
-        # Check away team eligibility
-        if game.away_team:
-            away_spread = -game.home_team_spread
-            if away_spread > -16.5 and game.away_team_id not in used_team_ids:
-                if game.away_team not in eligible_teams:
-                    eligible_teams.append(game.away_team)
+        if existing_game and existing_game.game_time:
+            game_time = existing_game.game_time
+            if game_time.tzinfo is None:
+                game_time = chicago_tz.localize(game_time)
+            
+            if current_time > game_time:
+                flash('Your pick is locked - that game has already started.', 'error')
+                return redirect(url_for('index'))
     
+    # Handle POST request (submitting/updating pick)
     if request.method == 'POST':
-        team_id = request.form.get('team_id')
+        team_id = int(request.form.get('team_id'))
         
-        if int(team_id) not in [t.id for t in eligible_teams]:
-            flash('Invalid team selection.', 'error')
+        # Check if the selected team's game has already started
+        new_team_game = Game.query.filter_by(week_id=week.id).filter(
+            db.or_(Game.home_team_id == team_id,
+                   Game.away_team_id == team_id)
+        ).first()
+        
+        if new_team_game and new_team_game.game_time:
+            game_time = new_team_game.game_time
+            if game_time.tzinfo is None:
+                game_time = chicago_tz.localize(game_time)
+            
+            if current_time > game_time:
+                flash('Cannot pick this team - their game has already started.', 'error')
+                return redirect(url_for('make_pick', week_number=week_number))
+        
+        # Get teams user has already used in previous weeks
+        used_teams = db.session.query(Pick.team_id).filter(
+            Pick.user_id == current_user.id,
+            Pick.week_id != week.id
+        ).all()
+        used_team_ids = [t[0] for t in used_teams]
+        
+        # Verify team hasn't been used before
+        if team_id in used_team_ids:
+            flash('You have already used this team in a previous week.', 'error')
             return redirect(url_for('make_pick', week_number=week_number))
         
+        # Save or update pick
         if existing_pick:
-            existing_pick.team_id = int(team_id)
-            existing_pick.created_at = get_utc_time()  # Store in UTC
+            existing_pick.team_id = team_id
+            existing_pick.created_at = current_time
             flash('Pick updated successfully!', 'success')
         else:
             new_pick = Pick(
                 user_id=current_user.id,
                 week_id=week.id,
-                team_id=int(team_id),
-                created_at=get_utc_time()  # Store in UTC
+                team_id=team_id,
+                created_at=current_time
             )
             db.session.add(new_pick)
             flash('Pick submitted successfully!', 'success')
         
+        # Recalculate cumulative spread
         current_user.calculate_cumulative_spread()
         db.session.commit()
+        
         return redirect(url_for('index'))
     
+    # GET request - build list of eligible teams
+    
+    # Get all games for this week
+    games = Game.query.filter_by(week_id=week.id).all()
+
+    for game in games:
+        if game.game_time:
+            if game.game_time.tzinfo is None:
+                game.game_time = chicago_tz.localize(game.game_time)
+    
+    # Get teams user has already used in previous weeks
+    used_teams = db.session.query(Pick.team_id).filter(
+        Pick.user_id == current_user.id,
+        Pick.week_id != week.id
+    ).all()
+    used_team_ids = [t[0] for t in used_teams]
+    
+    # Build eligible teams list
+    eligible_teams = []
+    teams_added = set()  # Track teams to avoid duplicates
+    
+    for game in games:
+        # Check home team
+        if game.home_team and game.home_team.id not in used_team_ids and game.home_team.id not in teams_added:
+            # Check spread eligibility (not favored by more than 16)
+            if game.home_team_spread >= -16:
+                # Check if game has started
+                can_pick = True
+                if game.game_time:
+                    game_time = game.game_time
+                    if game_time.tzinfo is None:
+                        game_time = chicago_tz.localize(game_time)
+                    if current_time > game_time:
+                        can_pick = False  # Game has started
+                
+                if can_pick:
+                    eligible_teams.append(game.home_team)
+                    teams_added.add(game.home_team.id)
+        
+        # Check away team
+        if game.away_team and game.away_team.id not in used_team_ids and game.away_team.id not in teams_added:
+            # Check spread eligibility (not favored by more than 16)
+            away_spread = -game.home_team_spread
+            if away_spread >= -16:
+                # Check if game has started
+                can_pick = True
+                if game.game_time:
+                    game_time = game.game_time
+                    if game_time.tzinfo is None:
+                        game_time = chicago_tz.localize(game_time)
+                    if current_time > game_time:
+                        can_pick = False  # Game has started
+                
+                if can_pick:
+                    eligible_teams.append(game.away_team)
+                    teams_added.add(game.away_team.id)
+    
     return render_template('pick.html', 
-                         week=week, 
+                         week=week,
+                         games=games,
                          eligible_teams=eligible_teams,
                          existing_pick=existing_pick,
-                         format_deadline=format_deadline)
-
+                         format_deadline=format_deadline,
+                         current_time=current_time)
 @app.route('/weekly_results')
 @app.route('/results/week/<int:week_number>')
 def weekly_results(week_number=None):
