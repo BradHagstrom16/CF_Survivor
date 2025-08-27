@@ -50,6 +50,15 @@ class User(UserMixin, db.Model):
 
         self.cumulative_spread = total
         return total
+    @property
+    def display_name(self):
+        """Returns display name for the user"""
+        if self.username == 'admin':
+            return 'B1G_Brad'
+        # Add any other username mappings here if needed
+        # elif self.username == 'commissioner':
+        #     return 'The Commish'
+        return self.username
 
 class Team(db.Model):
     """Team model - stores college football teams"""
