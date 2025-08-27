@@ -28,7 +28,10 @@
             <tbody>
                 {% for user in users %}
                 <tr>
-                    <td><strong>{{ user.username }}</strong></td>
+                    <td><strong>{{ user.display_name }}</strong>
+   {% if user.username != user.display_name %}
+       <small class="text-muted">({{ user.username }})</small>
+   {% endif %}</td>
                     <td>{{ user.email }}</td>
                     <td>{{ user.lives_remaining }}</td>
                     <td>
