@@ -94,7 +94,7 @@
                     {% for pick in picks %}
                     <tr class="{% if pick.is_correct == False %}table-danger{% elif pick.is_correct == True %}table-success{% endif %}">
                         <td>
-    <strong>{{ pick.user.username }}</strong>
+    <strong>{{ pick.user.display_name }}</strong>
     {% if pick.created_at > week.deadline %}
         <span class="badge bg-warning" title="Auto-pick">AUTO</span>
     {% endif %}
