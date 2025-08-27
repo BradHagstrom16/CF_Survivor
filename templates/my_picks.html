@@ -58,7 +58,6 @@
                                     <th>Team Picked</th>
                                     <th>Spread</th>
                                     <th>Result</th>
-                                    <th>Points</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -93,26 +92,14 @@
                                             <span class="badge bg-secondary">Pending</span>
                                         {% endif %}
                                     </td>
-                                    <td>
-                                        {% if pick.spread_data %}
-                                            {% if pick.spread_data.team_spread < 0 %}
-                                                <span class="text-success">+{{ "%.1f"|format(-pick.spread_data.team_spread) }}</span>
-                                            {% elif pick.spread_data.team_spread > 0 %}
-                                                <span class="text-danger">-{{ "%.1f"|format(pick.spread_data.team_spread) }}</span>
-                                            {% else %}
-                                                0
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot>
                                 <tr class="table-info">
-                                    <td colspan="4"><strong>Total Cumulative Spread:</strong></td>
+                                    <td colspan="2"><strong>Total Cumulative Spread:</strong></td>
                                     <td><strong>{{ "%.1f"|format(current_user.cumulative_spread) }}</strong></td>
+                                    <td></td>
                                 </tr>
                             </tfoot>
                         </table>
