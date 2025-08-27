@@ -10,11 +10,22 @@
         </div>
         
         {% if existing_pick %}
-            <div class="alert alert-success">
-                <h5>Current Pick: {{ existing_pick.team.name }}</h5>
-                <small>You can change your pick until the deadline.</small>
-            </div>
+    <div class="alert alert-success">
+        <h5>Current Pick: {{ existing_pick.team.name }}</h5>
+        <small>You can change your pick until the deadline.</small>
+    </div>
+    
+    <!-- Add this new section -->
+    {% for game in games %}
+        {% if (game.home_team and existing_pick.team_id == game.home_team.id) or (game.away_team and existing_pick.team_id == game.away_team.id) %}
+            {% if game.game_time and game.game_time < current_time %}
+                <div class="alert alert-danger">
+                    <strong>Your pick is locked!</strong> The {{ existing_pick.team.name }} game has already started.
+                </div>
+            {% endif %}
         {% endif %}
+    {% endfor %}
+    {% endif %}
         
         <form method="POST">
             <div class="mb-3">
@@ -74,7 +85,11 @@
                                     {{ away_display }} @ {{ home_display }}
                                 </h6>
                                 <p class="card-text small">
-                                    {{ game.game_time.strftime('%m/%d %I:%M %p') }}<br>
+                                    {{ game.game_time.strftime('%m/%d %I:%M %p') }}
+                                    {% if game.game_time and game.game_time < current_time %}
+                                    <span class="badge bg-dark ms-1">LOCKED</span>
+                                     {% endif %}
+                                     <br>
                                     Spread: 
                                     {% if game.home_team_spread < 0 %}
                                         {{ home_display }} {{ game.home_team_spread }}
