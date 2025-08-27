@@ -74,6 +74,39 @@
             <p class="text-muted">Showing matchups for teams you can pick (not favored by more than 16 points and not previously picked)</p>
             
             <div class="row">
+                {% if existing_pick and pick_locked %}
+                <!-- Show the locked pick's game separately -->
+                {% for game in games %}
+                {% if (game.home_team and existing_pick.team_id == game.home_team.id) or 
+              (game.away_team and existing_pick.team_id == game.away_team.id) %}
+        <div class="col-md-6 mb-3">
+            <div class="card border-danger border-2">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        {{ game.get_away_team_display() }} @ {{ game.get_home_team_display() }}
+                    </h6>
+                    <p class="card-text small">
+                        {{ game.game_time.strftime('%m/%d %I:%M %p') }}
+                        <span class="badge bg-dark ms-1">LOCKED - GAME STARTED</span>
+                        <br>
+                        Spread: 
+                        {% if game.home_team_spread < 0 %}
+                            {{ game.get_home_team_display() }} {{ game.home_team_spread }}
+                        {% else %}
+                            {{ game.get_away_team_display() }} -{{ game.home_team_spread }}
+                        {% endif %}
+                    </p>
+                    <div>
+                        <span class="badge bg-danger">
+                            {{ existing_pick.team.name }} - PICK LOCKED
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
                 {% for game in week.games | sort(attribute='game_time') %}
                     {% set home_display = game.get_home_team_display() %}
                     {% set away_display = game.get_away_team_display() %}
