@@ -2,13 +2,16 @@
 NCAA Football API Game Importer
 This script imports games from The Odds API with intelligent filtering and team matching.
 It handles both tracked teams (your 49) and their opponents who might not be in your pool.
+All times are properly converted to Central timezone.
 """
 
 import requests
 import json
+import pytz
 from datetime import datetime, timedelta
 from app import app, db
 from models import Team, Week, Game
+
 
 class NCAAFootballAPIImporter:
     """
@@ -22,8 +25,11 @@ class NCAAFootballAPIImporter:
         self.api_key = "97cb8b654ed9acfd64eeb7e6e5837ed7"
         self.base_url = "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf/odds"
         
+        # Set up timezone objects
+        self.utc_tz = pytz.UTC
+        self.chicago_tz = pytz.timezone('America/Chicago')
+        
         # This mapping translates the API's full team names to your database names
-        # Think of it as a translation dictionary between two different naming conventions
         self.team_name_map = {
             'Texas Longhorns': 'Texas',
             'Penn State Nittany Lions': 'Penn State',
@@ -77,28 +83,28 @@ class NCAAFootballAPIImporter:
         }
         
         # Create a set of tracked teams for quick lookup
-        # This helps us quickly identify if a team is in your pool
         self.tracked_teams = set(self.team_name_map.values())
     
     def fetch_games_for_date_range(self, start_date, end_date):
         """
         Fetches games from the API for a specific date range.
-        
-        The API returns games with odds from various bookmakers. We'll prefer
-        DraftKings but use others if needed. The date filtering happens on the
-        API side, which is more efficient than fetching everything and filtering locally.
+        Note: API expects UTC times, so we convert our Central times to UTC for the request.
         """
+        # Convert Central time dates to UTC for API request
+        start_utc = self.chicago_tz.localize(start_date).astimezone(self.utc_tz)
+        end_utc = self.chicago_tz.localize(end_date.replace(hour=23, minute=59)).astimezone(self.utc_tz)
+        
         # Build the API request parameters
         params = {
             'apiKey': self.api_key,
             'regions': 'us',  # US bookmakers only
             'markets': 'spreads',  # We need point spreads
             'oddsFormat': 'american',  # American odds format
-            'commenceTimeFrom': start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'commenceTimeTo': end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+            'commenceTimeFrom': start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'commenceTimeTo': end_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
         }
         
-        print(f"\nFetching games from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
+        print(f"\nFetching games from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} (Central time)...")
         
         try:
             response = requests.get(self.base_url, params=params)
@@ -128,8 +134,7 @@ class NCAAFootballAPIImporter:
         Extracts the point spread from a game's bookmaker data.
         
         We prefer DraftKings for consistency, but will use the first available
-        bookmaker if DraftKings doesn't have odds for this game. The spread
-        is returned as a tuple: (home_spread, away_spread, bookmaker_used)
+        bookmaker if DraftKings doesn't have odds for this game.
         """
         bookmakers = game_data.get('bookmakers', [])
         
@@ -188,8 +193,6 @@ class NCAAFootballAPIImporter:
         2. AND either:
            - No team is favored by more than 16 points, OR
            - A tracked team is the underdog (even if opponent is favored by >16)
-        
-        This ensures your users can pick any underdog, regardless of spread.
         """
         home_team = game_data.get('home_team')
         away_team = game_data.get('away_team')
@@ -224,9 +227,7 @@ class NCAAFootballAPIImporter:
     def import_games_to_database(self, games_data, week_number):
         """
         Imports the filtered games into your database for the specified week.
-        
-        This method handles both tracked and non-tracked teams appropriately,
-        storing team IDs when available or team names as strings when not.
+        CRITICAL: Converts all game times from UTC to Central timezone before storing.
         """
         with app.app_context():
             # Verify the week exists
@@ -274,15 +275,25 @@ class NCAAFootballAPIImporter:
                 home_team_obj = all_teams.get(home_clean)
                 away_team_obj = all_teams.get(away_clean)
                 
-                # Parse game time
+                # Parse game time - API returns UTC time
                 commence_time = game_data.get('commence_time', '')
                 if commence_time:
-                    game_time = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+                    # Parse as UTC
+                    game_time_utc = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+                    
+                    # Make sure it's UTC aware
+                    if game_time_utc.tzinfo is None:
+                        game_time_utc = self.utc_tz.localize(game_time_utc)
+                    else:
+                        game_time_utc = game_time_utc.astimezone(self.utc_tz)
+                    
+                    # Convert to Chicago timezone
+                    game_time_chicago = game_time_utc.astimezone(self.chicago_tz)
                 else:
-                    game_time = datetime.now()
+                    # Fallback to current Chicago time if no commence_time
+                    game_time_chicago = datetime.now(self.chicago_tz)
                 
                 # Check if game already exists
-                # We need to check both ID-based and name-based matches
                 existing_game = None
                 
                 if home_team_obj and away_team_obj:
@@ -297,7 +308,7 @@ class NCAAFootballAPIImporter:
                     print(f"Already exists: {away_clean} @ {home_clean}")
                     continue
                 
-                # Create new game with appropriate fields
+                # Create new game with Chicago timezone
                 new_game = Game(
                     week_id=week.id,
                     home_team_id=home_team_obj.id if home_team_obj else None,
@@ -305,16 +316,17 @@ class NCAAFootballAPIImporter:
                     home_team_name=None if home_team_obj else api_home_team,
                     away_team_name=None if away_team_obj else api_away_team,
                     home_team_spread=home_spread,
-                    game_time=game_time
+                    game_time=game_time_chicago  # Store in Chicago time
                 )
                 
                 db.session.add(new_game)
                 imported += 1
                 
-                # Display what we imported
+                # Display what we imported with Central time
                 home_display = home_clean if home_team_obj else f"{api_home_team} (untracked)"
                 away_display = away_clean if away_team_obj else f"{api_away_team} (untracked)"
-                print(f"✅ Added: {away_display} @ {home_display} | Spread: {home_spread:.1f}")
+                time_display = game_time_chicago.strftime('%m/%d %I:%M %p CT')
+                print(f"✅ Added: {away_display} @ {home_display} | {time_display} | Spread: {home_spread:.1f}")
             
             # Commit all changes
             db.session.commit()
@@ -344,7 +356,7 @@ def suggest_dates_for_week(week_number):
     """
     Suggests appropriate date ranges for each week of the college football season.
     
-    Week 1 starts on Thursday, August 28, 2025. Each subsequent week starts
+    Week 1 starts Thursday, August 28, 2025. Each subsequent week starts
     7 days later. Most games are on Saturday, but we include a few days buffer.
     """
     # Week 1 starts Thursday, August 28, 2025
@@ -369,6 +381,7 @@ def main():
     print("\n" + "=" * 60)
     print("NCAA Football API Game Importer")
     print("=" * 60)
+    print("Note: All times will be converted to Central timezone")
     
     # Get week number
     while True:
@@ -386,8 +399,8 @@ def main():
     suggested_start, suggested_end = suggest_dates_for_week(week_num)
     
     print(f"\nDate range for Week {week_num}:")
-    print(f"Suggested start: {suggested_start.strftime('%Y-%m-%d')}")
-    print(f"Suggested end: {suggested_end.strftime('%Y-%m-%d')}")
+    print(f"Suggested start: {suggested_start.strftime('%Y-%m-%d')} (Central time)")
+    print(f"Suggested end: {suggested_end.strftime('%Y-%m-%d')} (Central time)")
     
     # Get actual dates (allow override of suggestions)
     start_input = input(f"\nEnter start date (YYYY-MM-DD) or press Enter for suggested [{suggested_start.strftime('%Y-%m-%d')}]: ").strip()

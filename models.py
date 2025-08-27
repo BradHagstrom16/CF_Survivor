@@ -3,6 +3,8 @@
 from extensions import db
 from flask_login import UserMixin
 from datetime import datetime
+from datetime_utils import is_past_deadline, get_chicago_time
+from sqlalchemy import or_
 
 class User(UserMixin, db.Model):
     """User model - stores user account information"""
@@ -18,28 +20,33 @@ class User(UserMixin, db.Model):
     picks = db.relationship('Pick', backref='user', lazy=True)
     
     def calculate_cumulative_spread(self):
-        """Calculate and update the user's cumulative spread based on all picks"""
+        """Calculate cumulative spread based only on completed weeks"""
         total = 0.0
+
         for pick in self.picks:
+            # Only include picks from weeks past their deadline
+            if not is_past_deadline(pick.week.deadline):
+                continue
+
             # Find the game to get the spread
             game = Game.query.filter_by(week_id=pick.week_id).filter(
                 db.or_(Game.home_team_id == pick.team_id, 
-                       Game.away_team_id == pick.team_id)
+                Game.away_team_id == pick.team_id)
             ).first()
-            
+
             if game:
                 # Determine the spread for the picked team
                 if pick.team_id == game.home_team_id:
                     team_spread = game.home_team_spread
                 else:  # Away team
                     team_spread = -game.home_team_spread
-                
+
                 # Add to cumulative (favorites add positive, underdogs subtract)
                 if team_spread < 0:  # Favorite
                     total += abs(team_spread)
                 else:  # Underdog
                     total -= team_spread
-        
+
         self.cumulative_spread = total
         return total
 

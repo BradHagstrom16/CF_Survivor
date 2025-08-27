@@ -50,9 +50,23 @@ def deadline_has_passed(deadline):
     return current > deadline_aware
 
 def format_deadline(deadline):
-    """Format deadline for display in pool timezone"""
-    deadline_aware = to_pool_time(deadline)
-    return deadline_aware.strftime('%B %d, %Y at %I:%M %p %Z')
+    """Format deadline for display in Chicago timezone"""
+    import pytz
+    
+    if deadline is None:
+        return 'TBD'
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    
+    # If deadline has timezone info, convert to Chicago
+    if deadline.tzinfo is not None:
+        deadline_chicago = deadline.astimezone(chicago_tz)
+    else:
+        # If naive, assume it's already in Chicago time
+        deadline_chicago = chicago_tz.localize(deadline)
+    
+    # Format with CDT/CST shown
+    return deadline_chicago.strftime('%B %d, %Y at %I:%M %p %Z')
 
 def parse_form_datetime(datetime_str):
     """Parse datetime from form input and make it timezone-aware in pool timezone"""

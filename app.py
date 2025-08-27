@@ -11,6 +11,7 @@ from timezone_utils import (
 )
 from config import DevelopmentConfig, ProductionConfig
 from extensions import db
+from datetime_utils import is_past_deadline, get_chicago_time, make_chicago_aware, format_chicago_time
 import os
 
 app = Flask(__name__)
@@ -83,10 +84,17 @@ def index():
             week_id=current_week.id
         ).first()
     
-    # Get standings with proper tiebreaker sorting
+    # Recalculate spreads for all users (only includes past deadlines)
+    all_users = User.query.all()
+    for user in all_users:
+        user.calculate_cumulative_spread()
+    db.session.commit()
+    
+    # Get standings with CORRECTED sorting
+    # Sort by: 1) Not eliminated, 2) Lives remaining (desc), 3) Cumulative spread (ASC - smallest/most negative is best)
     users = User.query.filter_by(is_eliminated=False).order_by(
         User.lives_remaining.desc(),
-        User.cumulative_spread.desc()
+        User.cumulative_spread.asc()  # Changed from desc to asc
     ).all()
     
     eliminated_users = User.query.filter_by(is_eliminated=True).all()
@@ -96,7 +104,7 @@ def index():
                          user_pick=user_pick,
                          users=users,
                          eliminated_users=eliminated_users,
-                         format_deadline=format_deadline,  # Pass the function
+                         format_deadline=format_deadline,
                          timezone=POOL_TZ_NAME)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -262,10 +270,7 @@ def make_pick(week_number):
     
     week = Week.query.filter_by(week_number=week_number).first_or_404()
     
-    # Ensure deadline is timezone-aware for comparison
-    week.deadline = make_aware(week.deadline)
-    
-    if deadline_has_passed(week.deadline):
+    if is_past_deadline(week.deadline):
         flash('The deadline for this week has passed.', 'error')
         return redirect(url_for('index'))
     
@@ -440,11 +445,22 @@ def admin_dashboard():
 def create_week():
     """Create a new week"""
     if request.method == 'POST':
+        import pytz
+        from datetime import datetime
+        
+        chicago_tz = pytz.timezone('America/Chicago')
         week_number = int(request.form.get('week_number'))
         
-        # Parse as timezone-aware in pool timezone
-        start_date = parse_form_datetime(request.form.get('start_date'))
-        deadline = parse_form_datetime(request.form.get('deadline'))
+        # Parse the dates as naive (no timezone)
+        start_date_str = request.form.get('start_date')
+        deadline_str = request.form.get('deadline')
+        
+        start_date_naive = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
+        deadline_naive = datetime.strptime(deadline_str, '%Y-%m-%dT%H:%M')
+        
+        # CRITICAL: Localize as Chicago time (this interprets the input AS Chicago time)
+        start_date = chicago_tz.localize(start_date_naive)
+        deadline = chicago_tz.localize(deadline_naive)
         
         # Check if week already exists
         existing = Week.query.filter_by(week_number=week_number).first()
@@ -452,7 +468,7 @@ def create_week():
             flash(f'Week {week_number} already exists!', 'error')
             return redirect(url_for('create_week'))
         
-        # Create new week with timezone-aware datetimes
+        # Create new week - store with timezone info
         new_week = Week(
             week_number=week_number,
             start_date=start_date,
@@ -465,7 +481,7 @@ def create_week():
         flash(f'Week {week_number} created successfully!', 'success')
         return redirect(url_for('admin_dashboard'))
     
-    return render_template('admin/create_week.html', timezone=POOL_TZ_NAME)
+    return render_template('admin/create_week.html', timezone='America/Chicago')
 
 @app.route('/admin/week/<int:week_id>/activate')
 @admin_required
