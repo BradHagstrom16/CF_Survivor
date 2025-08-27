@@ -13,6 +13,7 @@ from config import DevelopmentConfig, ProductionConfig
 from extensions import db
 from datetime_utils import is_past_deadline, get_chicago_time, make_chicago_aware, format_chicago_time
 import os
+import pytz
 
 app = Flask(__name__)
 
@@ -283,8 +284,7 @@ def my_picks():
 @login_required
 def make_pick(week_number):
     """Page for making picks for a specific week"""
-    import pytz
-    from datetime import datetime
+
     
     chicago_tz = pytz.timezone('America/Chicago')
     current_time = datetime.now(chicago_tz)
