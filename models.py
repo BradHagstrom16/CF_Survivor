@@ -14,6 +14,7 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(200), nullable=False)
     lives_remaining = db.Column(db.Integer, default=2)
     is_eliminated = db.Column(db.Boolean, default=False)
+    has_paid = db.Column(db.Boolean, default=False)
     cumulative_spread = db.Column(db.Float, default=0.0)
     
     # Relationship to picks

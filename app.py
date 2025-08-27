@@ -62,7 +62,7 @@ def admin_required(f):
             flash('Please log in first.', 'error')
             return redirect(url_for('login'))
         # Check if user is admin
-        if current_user.username not in ['admin', 'commissioner']:
+        if current_user.username not in ['admin', 'B1G_Brad']:
             flash('Admin access required.', 'error')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
@@ -732,6 +732,52 @@ def admin_process_autopicks(week_id):
         flash(f'Auto-picks not processed: {result.get("reason", "Unknown reason")}', 'warning')
     
     return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/payments')
+@admin_required
+def admin_payments():
+    """Admin page to track payments"""
+    # Get all users
+    all_users = User.query.order_by(User.username).all()
+    
+    # Separate active and eliminated
+    active_users = [u for u in all_users if not u.is_eliminated]
+    eliminated_users = [u for u in all_users if u.is_eliminated]
+    
+    # Calculate statistics
+    paid_count = sum(1 for u in active_users if u.has_paid)
+    unpaid_count = len(active_users) - paid_count
+    
+    # Calculate total collected (assuming $20 entry fee - adjust as needed)
+    entry_fee = 25  # Change this to your actual entry fee
+    total_collected = paid_count * entry_fee
+    
+    return render_template('admin/payments.html',
+                         active_users=active_users,
+                         eliminated_users=eliminated_users,
+                         paid_count=paid_count,
+                         unpaid_count=unpaid_count,
+                         total_active=len(active_users),
+                         total_collected=total_collected,
+                         entry_fee=entry_fee)
+
+@app.route('/admin/update-payment/<int:user_id>', methods=['POST'])
+@admin_required
+def admin_update_payment(user_id):
+    """AJAX endpoint to update payment status"""
+    import json
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Get JSON data from request
+    data = request.get_json()
+    has_paid = data.get('has_paid', False)
+    
+    # Update payment status
+    user.has_paid = has_paid
+    db.session.commit()
+    
+    return json.dumps({'success': True, 'has_paid': has_paid})
 
 # Helper Functions
 def process_week_results(week_id):
