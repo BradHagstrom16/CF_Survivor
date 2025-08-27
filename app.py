@@ -311,74 +311,77 @@ def make_pick(week_number):
         user_id=current_user.id,
         week_id=week.id
     ).first()
-    
-    # If user has existing pick, check if that game has started
+
+    # Determine if existing pick's game has started
+    pick_locked = False
     if existing_pick:
         existing_game = Game.query.filter_by(week_id=week.id).filter(
             db.or_(Game.home_team_id == existing_pick.team_id,
                    Game.away_team_id == existing_pick.team_id)
         ).first()
-        
+
         if existing_game and existing_game.game_time:
             game_time = existing_game.game_time
             if game_time.tzinfo is None:
                 game_time = chicago_tz.localize(game_time)
-            
+
             if current_time > game_time:
-                flash('Your pick is locked - that game has already started.', 'error')
-                return redirect(url_for('index'))
-    
+                pick_locked = True
+
     # Handle POST request (submitting/updating pick)
     if request.method == 'POST':
-        team_id = int(request.form.get('team_id'))
-        
-        # Check if the selected team's game has already started
-        new_team_game = Game.query.filter_by(week_id=week.id).filter(
-            db.or_(Game.home_team_id == team_id,
-                   Game.away_team_id == team_id)
-        ).first()
-        
-        if new_team_game and new_team_game.game_time:
-            game_time = new_team_game.game_time
-            if game_time.tzinfo is None:
-                game_time = chicago_tz.localize(game_time)
-            
-            if current_time > game_time:
-                flash('Cannot pick this team - their game has already started.', 'error')
-                return redirect(url_for('make_pick', week_number=week_number))
-        
-        # Get teams user has already used in previous weeks
-        used_teams = db.session.query(Pick.team_id).filter(
-            Pick.user_id == current_user.id,
-            Pick.week_id != week.id
-        ).all()
-        used_team_ids = [t[0] for t in used_teams]
-        
-        # Verify team hasn't been used before
-        if team_id in used_team_ids:
-            flash('You have already used this team in a previous week.', 'error')
-            return redirect(url_for('make_pick', week_number=week_number))
-        
-        # Save or update pick
-        if existing_pick:
-            existing_pick.team_id = team_id
-            existing_pick.created_at = current_time
-            flash('Pick updated successfully!', 'success')
+        if pick_locked:
+            flash('Your pick is locked - that game has already started.', 'error')
         else:
-            new_pick = Pick(
-                user_id=current_user.id,
-                week_id=week.id,
-                team_id=team_id,
-                created_at=current_time
-            )
-            db.session.add(new_pick)
-            flash('Pick submitted successfully!', 'success')
-        
-        # Recalculate cumulative spread
-        current_user.calculate_cumulative_spread()
-        db.session.commit()
-        
-        return redirect(url_for('index'))
+            team_id = int(request.form.get('team_id'))
+
+            # Check if the selected team's game has already started
+            new_team_game = Game.query.filter_by(week_id=week.id).filter(
+                db.or_(Game.home_team_id == team_id,
+                       Game.away_team_id == team_id)
+            ).first()
+
+            if new_team_game and new_team_game.game_time:
+                game_time = new_team_game.game_time
+                if game_time.tzinfo is None:
+                    game_time = chicago_tz.localize(game_time)
+
+                if current_time > game_time:
+                    flash('Cannot pick this team - their game has already started.', 'error')
+                    return redirect(url_for('make_pick', week_number=week_number))
+
+            # Get teams user has already used in previous weeks
+            used_teams = db.session.query(Pick.team_id).filter(
+                Pick.user_id == current_user.id,
+                Pick.week_id != week.id
+            ).all()
+            used_team_ids = [t[0] for t in used_teams]
+
+            # Verify team hasn't been used before
+            if team_id in used_team_ids:
+                flash('You have already used this team in a previous week.', 'error')
+                return redirect(url_for('make_pick', week_number=week_number))
+
+            # Save or update pick
+            if existing_pick:
+                existing_pick.team_id = team_id
+                existing_pick.created_at = current_time
+                flash('Pick updated successfully!', 'success')
+            else:
+                new_pick = Pick(
+                    user_id=current_user.id,
+                    week_id=week.id,
+                    team_id=team_id,
+                    created_at=current_time
+                )
+                db.session.add(new_pick)
+                flash('Pick submitted successfully!', 'success')
+
+            # Recalculate cumulative spread
+            current_user.calculate_cumulative_spread()
+            db.session.commit()
+
+            return redirect(url_for('index'))
     
     # GET request - build list of eligible teams
     
@@ -443,7 +446,9 @@ def make_pick(week_number):
                          eligible_teams=eligible_teams,
                          existing_pick=existing_pick,
                          format_deadline=format_deadline,
-                         current_time=current_time)
+                         current_time=current_time,
+                         pick_locked=pick_locked)
+
 @app.route('/weekly_results')
 @app.route('/results/week/<int:week_number>')
 def weekly_results(week_number=None):
