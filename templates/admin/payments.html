@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Management - Admin{% endblock %}
+
+{% block content %}
+<h2>💰 Payment Management</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="alert alert-info">
+            <strong>Pool Status:</strong> 
+            {{ paid_count }} of {{ total_active }} active users have paid
+            ({{ unpaid_count }} still owe)
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Collected</h5>
+                <h2 class="text-success">${{ total_collected }}</h2>
+                <small class="text-muted">Based on ${{ entry_fee }} entry fee</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header bg-dark text-white">
+        <h4>Active Users Payment Status</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="paymentForm">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Lives</th>
+                        <th>Payment Status</th>
+                        <th>Quick Update</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in active_users %}
+                    <tr class="{% if not user.has_paid %}table-warning{% endif %}">
+                        <td>
+                            <strong>{{ user.username }}</strong>
+                            {% if user.username in ['admin', 'commissioner', 'B1G_Brad'] %}
+                                <span class="badge bg-primary">Admin</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            {% for i in range(user.lives_remaining) %}
+                                ❤️
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if user.has_paid %}
+                                <span class="badge bg-success">✓ PAID</span>
+                            {% else %}
+                                <span class="badge bg-warning">⚠ UNPAID</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input payment-toggle" 
+                                       type="checkbox" 
+                                       data-user-id="{{ user.id }}"
+                                       data-username="{{ user.username }}"
+                                       {% if user.has_paid %}checked{% endif %}>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
+    </div>
+</div>
+
+{% if eliminated_users %}
+<div class="card mt-3">
+    <div class="card-header bg-secondary text-white">
+        <h4>Eliminated Users</h4>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Payment Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in eliminated_users %}
+                <tr>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        {% if user.has_paid %}
+                            <span class="badge bg-success">PAID</span>
+                        {% else %}
+                            <span class="badge bg-secondary">UNPAID</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="mt-3">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+    <button type="button" class="btn btn-primary" onclick="location.reload()">
+        🔄 Refresh Status
+    </button>
+</div>
+
+<!-- JavaScript for AJAX updates -->
+<script>
+document.querySelectorAll('.payment-toggle').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+        const userId = this.dataset.userId;
+        const username = this.dataset.username;
+        const isPaid = this.checked;
+        
+        // Send AJAX request to update payment status
+        fetch(`/admin/update-payment/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                has_paid: isPaid
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alertHtml = `
+                    <div class="alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 1050;">
+                        ${username} marked as ${isPaid ? 'PAID' : 'UNPAID'}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', alertHtml);
+                
+                // Auto-dismiss after 3 seconds
+                setTimeout(() => {
+                    const alert = document.querySelector('.alert-success');
+                    if (alert) alert.remove();
+                }, 3000);
+                
+                // Update the row styling
+                const row = this.closest('tr');
+                if (isPaid) {
+                    row.classList.remove('table-warning');
+                    row.querySelector('.badge').className = 'badge bg-success';
+                    row.querySelector('.badge').textContent = '✓ PAID';
+                } else {
+                    row.classList.add('table-warning');
+                    row.querySelector('.badge').className = 'badge bg-warning';
+                    row.querySelector('.badge').textContent = '⚠ UNPAID';
+                }
+            } else {
+                alert('Failed to update payment status');
+                // Revert the checkbox
+                this.checked = !isPaid;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating payment status');
+            // Revert the checkbox
+            this.checked = !isPaid;
+        });
+    });
+});
+</script>
+
+{% endblock %}
