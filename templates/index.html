@@ -36,7 +36,7 @@
     </div>
 {% endif %}
         
-        <!-- Active Players Table -->
+ <!-- Active Players Table -->
 <h3>Active Players</h3>
 <table class="table table-striped">
     <thead>
@@ -45,6 +45,9 @@
             <th>Player</th>
             <th>Lives Remaining</th>
             <th>Cumulative Spread</th>
+            {% if current_week %}
+            <th>Week {{ current_week.week_number }} Pick</th>
+            {% endif %}
             <th>Status</th>
         </tr>
     </thead>
@@ -62,7 +65,7 @@
                 {% endif %}
             </td>
             <td>
-                <strong>{{ user.display_name }}</strong>
+                <strong>{{ user.username }}</strong>
             </td>
             <td>
                 {% for i in range(user.lives_remaining) %}
@@ -84,6 +87,21 @@
                     {% endif %}
                 </small>
             </td>
+            {% if current_week %}
+            <td>
+                {% if show_picks %}
+                    {% if user.id in week_picks %}
+                        <strong>{{ week_picks[user.id] }}</strong>
+                    {% else %}
+                        <span class="text-muted">No Pick</span>
+                    {% endif %}
+                {% else %}
+                    <span class="text-muted">
+                        <em>Hidden until {{ format_deadline(current_week.deadline) }}</em>
+                    </span>
+                {% endif %}
+            </td>
+            {% endif %}
             <td><span class="badge bg-success">Active</span></td>
         </tr>
         {% endfor %}
@@ -144,5 +162,4 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
