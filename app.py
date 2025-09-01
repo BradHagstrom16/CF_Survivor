@@ -85,6 +85,20 @@ def index():
             week_id=current_week.id
         ).first()
     
+    # Get all picks for current week if deadline has passed
+    week_picks = {}
+    show_picks = False
+    if current_week:
+        # Check if deadline has passed
+        current_week.deadline = make_aware(current_week.deadline)
+        show_picks = deadline_has_passed(current_week.deadline)
+        
+        if show_picks:
+            # Get all picks for this week
+            all_picks = Pick.query.filter_by(week_id=current_week.id).all()
+            for pick in all_picks:
+                week_picks[pick.user_id] = pick.team.name
+    
     # Recalculate spreads for all users (only includes past deadlines)
     all_users = User.query.all()
     for user in all_users:
@@ -105,6 +119,8 @@ def index():
                          user_pick=user_pick,
                          users=users,
                          eliminated_users=eliminated_users,
+                         week_picks=week_picks,  # Add this
+                         show_picks=show_picks,  # Add this
                          format_deadline=format_deadline,
                          timezone=POOL_TZ_NAME)
 
