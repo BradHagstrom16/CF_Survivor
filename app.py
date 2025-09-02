@@ -491,14 +491,19 @@ def weekly_results(week_number=None):
     
     # Get the specific week
     week = Week.query.filter_by(week_number=week_number).first_or_404()
-    
+    # Ensure the week's deadline is timezone-aware
+    week.deadline = make_aware(week.deadline)
+
     # Check if deadline has passed
     if current_time <= week.deadline:
         flash(f'Week {week_number} results will be available after the deadline: {week.deadline.strftime("%B %d at %I:%M %p")}', 'warning')
         return redirect(url_for('index'))
-    
+
     # Get all picks for this week with user information
     picks = Pick.query.filter_by(week_id=week.id).join(User).order_by(User.username).all()
+    # Convert pick timestamps to pool timezone for accurate comparisons
+    for pick in picks:
+        pick.created_at = to_pool_time(pick.created_at)
     
     # Get all games for this week to show results
     games = Game.query.filter_by(week_id=week.id).all()
