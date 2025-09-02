@@ -79,11 +79,22 @@ def index():
     
     # Get the current user's pick for this week (if they're logged in)
     user_pick = None
+    user_pick_spread = None
     if current_week and current_user.is_authenticated:
         user_pick = Pick.query.filter_by(
             user_id=current_user.id,
             week_id=current_week.id
         ).first()
+        if user_pick:
+            game = Game.query.filter_by(week_id=current_week.id).filter(
+                db.or_(Game.home_team_id == user_pick.team_id,
+                       Game.away_team_id == user_pick.team_id)
+            ).first()
+            if game:
+                if user_pick.team_id == game.home_team_id:
+                    user_pick_spread = game.home_team_spread
+                else:
+                    user_pick_spread = -game.home_team_spread
     
     # Get all picks for current week if deadline has passed
     week_picks = {}
@@ -97,7 +108,18 @@ def index():
             # Get all picks for this week
             all_picks = Pick.query.filter_by(week_id=current_week.id).all()
             for pick in all_picks:
-                week_picks[pick.user_id] = pick.team.name
+                game = Game.query.filter_by(week_id=current_week.id).filter(
+                    db.or_(Game.home_team_id == pick.team_id,
+                           Game.away_team_id == pick.team_id)
+                ).first()
+                if game:
+                    if pick.team_id == game.home_team_id:
+                        spread = game.home_team_spread
+                    else:
+                        spread = -game.home_team_spread
+                    week_picks[pick.user_id] = f"{pick.team.name} ({spread:+.1f})"
+                else:
+                    week_picks[pick.user_id] = pick.team.name
     
     # Recalculate spreads for all users (only includes past deadlines)
     all_users = User.query.all()
@@ -117,6 +139,7 @@ def index():
     return render_template('index.html', 
                          current_week=current_week,
                          user_pick=user_pick,
+                         user_pick_spread=user_pick_spread,
                          users=users,
                          eliminated_users=eliminated_users,
                          week_picks=week_picks,  # Add this
@@ -515,13 +538,15 @@ def weekly_results(week_number=None):
             game_results[game.home_team_id] = {
                 'opponent': game.get_away_team_display(),
                 'won': game.home_team_won if game.home_team_won is not None else None,
-                'was_home': True
+                'was_home': True,
+                'spread': game.home_team_spread
             }
         if game.away_team:
             game_results[game.away_team_id] = {
                 'opponent': game.get_home_team_display(),
                 'won': not game.home_team_won if game.home_team_won is not None else None,
-                'was_home': False
+                'was_home': False,
+                'spread': -game.home_team_spread
             }
     
     # Get users who didn't pick (if any)
