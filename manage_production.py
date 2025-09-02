@@ -10,7 +10,7 @@ from datetime import datetime
 
 class ProductionManager:
     def __init__(self):
-        self.username = "B1GBrad"  # PythonAnywhere username
+        self.username = "YOURUSERNAME"  # PythonAnywhere username
         self.local_db = "picks.db"
         self.backup_dir = "production_backups"
         
