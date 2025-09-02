@@ -539,12 +539,17 @@ def weekly_results(week_number=None):
     for pick in incorrect_picks:
         if pick.user.lives_remaining == 0 and pick.user.is_eliminated:
             eliminated_this_week.append(pick.user)
-    
+
     return render_template('weekly_results.html',
                          week=week,
                          picks=picks,
                          viewable_weeks=viewable_weeks,
-                         # ... other variables ...
+                         correct_picks=correct_picks,
+                         incorrect_picks=incorrect_picks,
+                         pending_picks=pending_picks,
+                         game_results=game_results,
+                         users_no_pick=users_no_pick,
+                         eliminated_this_week=eliminated_this_week,
                          format_deadline=format_deadline,
                          timezone=POOL_TZ_NAME)
 
