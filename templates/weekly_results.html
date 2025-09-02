@@ -60,7 +60,7 @@
     <div class="alert alert-danger">
         <h5>💀 Eliminated This Week:</h5>
         {% for user in eliminated_this_week %}
-            <span class="badge bg-danger me-2">{{ user.username }}</span>
+            <span class="badge bg-danger me-2">{{ user.display_name }}</span>
         {% endfor %}
     </div>
     {% endif %}
@@ -92,7 +92,12 @@
     {% endif %}
 </td>
                         <td>
-                            <strong>{{ pick.team.name }}</strong>
+                            <strong>
+                                {{ pick.team.name }}
+                                {% if pick.team_id in game_results %}
+                                    ({{ "%+.1f"|format(game_results[pick.team_id]['spread']) }})
+                                {% endif %}
+                            </strong>
                         </td>
                         <td>
                             {% if pick.team_id in game_results %}
@@ -137,7 +142,7 @@
                     {% for user in users_no_pick %}
                     <tr class="table-warning">
                         <td>
-                            <strong>{{ user.username }}</strong>
+                            <strong>{{ user.display_name }}</strong>
                         </td>
                         <td colspan="2">
                             <em>No pick submitted</em>

@@ -65,7 +65,7 @@
                 {% endif %}
             </td>
             <td>
-                <strong>{{ user.username }}</strong>
+                <strong>{{ user.display_name }}</strong>
             </td>
             <td>
                 {% for i in range(user.lives_remaining) %}
@@ -77,15 +77,6 @@
             </td>
             <td>
                 <span class="badge bg-primary">{{ "%.1f"|format(user.cumulative_spread) }}</span>
-                <small class="text-muted" title="Higher is better - rewards picking favorites">
-                    {% if user.cumulative_spread > 0 %}
-                        ↑
-                    {% elif user.cumulative_spread < 0 %}
-                        ↓
-                    {% else %}
-                        -
-                    {% endif %}
-                </small>
             </td>
             {% if current_week %}
             <td>
@@ -136,7 +127,7 @@
             <tbody>
                 {% for user in eliminated_users %}
                 <tr>
-                    <td>{{ user.username }}</td>
+                    <td>{{ user.display_name }}</td>
                     <td><span class="badge bg-danger">Eliminated</span></td>
                 </tr>
                 {% endfor %}
