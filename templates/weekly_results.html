@@ -29,7 +29,7 @@
     
     <!-- Week Summary Cards -->
     <div class="row mb-3">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card text-center">
                 <div class="card-body">
                     <h6>Total Picks</h6>
@@ -37,7 +37,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card text-center">
                 <div class="card-body bg-success text-white">
                     <h6>Correct</h6>
@@ -45,19 +45,11 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card text-center">
                 <div class="card-body bg-danger text-white">
                     <h6>Incorrect</h6>
                     <h3>{{ incorrect_picks|length }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body bg-warning">
-                    <h6>Pending</h6>
-                    <h3>{{ pending_picks|length }}</h3>
                 </div>
             </div>
         </div>
