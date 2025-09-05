@@ -8,10 +8,9 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 from dotenv import load_dotenv
-import sys
 
 # Load your Flask app context
 from app import app, db
@@ -117,8 +116,8 @@ class SmartDailyReminder:
         else:
             return f"{minutes} minutes"
     
-    def send_reminder_email(self, user, week, reminder_type):
-        """Send reminder email to a single user"""
+    def send_reminder_email(self, user, week, reminder_type, server):
+        """Send reminder email to a single user using an active SMTP server"""
         try:
             # Create message
             msg = MIMEMultipart('alternative')
@@ -131,10 +130,16 @@ class SmartDailyReminder:
             
             msg['From'] = self.email_address
             msg['To'] = user.email
+
+             # Ensure deadline is timezone-aware
+            deadline = week.deadline
+            if deadline.tzinfo is None:
+                deadline = self.chicago_tz.localize(deadline)
+
             
             # Calculate time remaining
-            time_remaining = self.calculate_hours_until_deadline(week.deadline)
-            deadline_str = week.deadline.strftime('%B %d at %I:%M %p %Z')
+            time_remaining = self.calculate_hours_until_deadline(deadline)
+            deadline_str = deadline.strftime('%B %d at %I:%M %p %Z')
             
             # Create HTML email body
             if reminder_type == '1hour':
@@ -276,11 +281,8 @@ class SmartDailyReminder:
             msg.attach(part1)
             msg.attach(part2)
             
-            # Send email
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.email_address, self.email_password)
-                server.send_message(msg)
+            # Send email using existing server connection
+            server.send_message(msg)
             
             print(f"✅ Reminder sent to {user.username} ({user.email})")
             return True
@@ -321,11 +323,16 @@ class SmartDailyReminder:
         success_count = 0
         fail_count = 0
         
-        for user in users_without_picks:
-            if self.send_reminder_email(user, week, reminder_type):
-                success_count += 1
-            else:
-                fail_count += 1
+        # Open a single SMTP connection for all emails
+        with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+            server.starttls()
+            server.login(self.email_address, self.email_password)
+
+            for user in users_without_picks:
+                if self.send_reminder_email(user, week, reminder_type, server):
+                    success_count += 1
+                else:
+                    fail_count += 1
         
         # Summary
         print("\n" + "-"*60)
@@ -353,71 +360,12 @@ class SmartDailyReminder:
                 f.write(f"Sent: {success} | Failed: {failed}\n")
             else:
                 f.write(f"No reminders needed\n")
-    
-    def test_what_would_happen(self):
-        """Test mode to see what would happen if run now"""
-        print("\n" + "="*60)
-        print("TEST MODE - What would happen if this ran now?")
-        print("="*60)
-        
-        now = datetime.now(self.chicago_tz)
-        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        
-        print(f"Current time: {now.strftime('%A, %B %d at %I:%M %p %Z')}")
-        print(f"Day of week: {day_names[now.weekday()]}")
-        
-        reminder_type, week = self.should_send_reminders()
-        
-        if reminder_type:
-            print(f"\n✅ Would send: {reminder_type} reminder")
-            users = self.get_users_without_picks(week)
-            print(f"Would email {len(users)} users:")
-            for user in users[:5]:  # Show first 5
-                print(f"  - {user.username} ({user.email})")
-            if len(users) > 5:
-                print(f"  ... and {len(users) - 5} more")
-        else:
-            print("\n❌ Would NOT send any reminders today")
-        
-        print("\nSchedule:")
-        print("  Friday 9:59 AM - Send 25-hour reminder")
-        print("  Saturday 9:59 AM - Send 1-hour reminder")
-        print("  Other days - Do nothing")
 
 def main():
     """Main function"""
     reminder_system = SmartDailyReminder()
     
-    # Check for command line arguments
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--test':
-            # Test mode - see what would happen
-            reminder_system.test_what_would_happen()
-        elif sys.argv[1] == '--force-friday':
-            # Force send as if it's Friday (for testing)
-            print("FORCING FRIDAY REMINDER (TEST MODE)")
-            reminder_system.reminder_type = '25hour'
-            with app.app_context():
-                week = Week.query.filter_by(is_active=True).first()
-                if week:
-                    users = reminder_system.get_users_without_picks(week)
-                    for user in users:
-                        reminder_system.send_reminder_email(user, week, '25hour')
-        elif sys.argv[1] == '--force-saturday':
-            # Force send as if it's Saturday (for testing)
-            print("FORCING SATURDAY REMINDER (TEST MODE)")
-            with app.app_context():
-                week = Week.query.filter_by(is_active=True).first()
-                if week:
-                    users = reminder_system.get_users_without_picks(week)
-                    for user in users:
-                        reminder_system.send_reminder_email(user, week, '1hour')
-        else:
-            # Normal run
-            reminder_system.run_daily_check()
-    else:
-        # Default: run the daily check
-        reminder_system.run_daily_check()
+    reminder_system.run_daily_check()
 
 if __name__ == "__main__":
     main()
