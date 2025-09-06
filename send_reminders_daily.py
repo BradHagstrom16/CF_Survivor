@@ -20,7 +20,7 @@ from models import User, Week, Pick
 load_dotenv()
 
 EMAIL_ADDRESS=bhagstrom0@gmail.com \
-EMAIL_PASSWORD=ogpp jrys jsqn gcmr \
+EMAIL_PASSWORD=fake password \
 /usr/bin/python3 /home/BIGBrad/CF_Survivor/send_reminders_daily.py
 
 
