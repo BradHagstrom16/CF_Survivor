@@ -887,8 +887,12 @@ def process_autopicks(week_id):
     autopicks_made = []
     autopicks_failed = []
     
-    # Get all games for this week
-    games = Game.query.filter_by(week_id=week_id).all()
+    # Get all games for this week that haven't started yet
+    current_time = get_current_time()
+    games = [
+        game for game in Game.query.filter_by(week_id=week_id).all()
+        if not game.game_time or make_aware(game.game_time) > current_time
+    ]
     
     for user in users_needing_autopick:
         # Get teams user has already used in previous weeks
