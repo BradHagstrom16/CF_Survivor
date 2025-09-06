@@ -19,6 +19,11 @@ from models import User, Week, Pick
 # Load environment variables
 load_dotenv()
 
+EMAIL_ADDRESS=bhagstrom0@gmail.com \
+EMAIL_PASSWORD=ogpp jrys jsqn gcmr \
+/usr/bin/python3 /home/BIGBrad/CF_Survivor/send_reminders_daily.py
+
+
 class SmartDailyReminder:
     def __init__(self):
         # Email configuration
