@@ -550,20 +550,53 @@ def weekly_results(week_number=None):
             }
     
     # Get users who didn't pick (if any)
-    all_users = User.query.filter_by(is_eliminated=False).all()
+    all_users = User.query.order_by(User.username).all()
     users_who_picked = [pick.user_id for pick in picks]
     users_no_pick = [user for user in all_users if user.id not in users_who_picked]
-    
+
     # Separate picks by result
     correct_picks = [p for p in picks if p.is_correct == True]
     incorrect_picks = [p for p in picks if p.is_correct == False]
     pending_picks = [p for p in picks if p.is_correct is None]
-    
-    # Find who was eliminated this week
-    eliminated_this_week = []
-    for pick in incorrect_picks:
-        if pick.user.lives_remaining == 0 and pick.user.is_eliminated:
-            eliminated_this_week.append(pick.user)
+
+    # Calculate each user's status after this week
+    user_statuses = {}
+    for user in all_users:
+        lives = 2
+        eliminated_week = None
+        past_picks = Pick.query.join(Week).filter(
+            Pick.user_id == user.id,
+            Week.week_number <= week.week_number
+        ).order_by(Week.week_number).all()
+        for past_pick in past_picks:
+            if past_pick.is_correct == False:
+                lives -= 1
+                if lives <= 0:
+                    eliminated_week = past_pick.week.week_number
+                    lives = 0
+                    break
+        user_statuses[user.id] = {
+            'lives': lives,
+            'is_eliminated': lives == 0,
+            'eliminated_week': eliminated_week
+        }
+
+    # Attach status info to picks and no-pick users
+    for pick in picks:
+        status = user_statuses.get(pick.user_id, {'lives': 2, 'is_eliminated': False})
+        pick.lives_after = status['lives']
+        pick.was_eliminated = status['is_eliminated']
+
+    for user in users_no_pick:
+        status = user_statuses.get(user.id, {'lives': 2, 'is_eliminated': False})
+        user.lives_after = status['lives']
+        user.was_eliminated = status['is_eliminated']
+
+    # Determine who was eliminated this week
+    eliminated_this_week = [
+        user for user in all_users
+        if user_statuses[user.id]['eliminated_week'] == week.week_number
+    ]
 
     return render_template('weekly_results.html',
                          week=week,
@@ -835,15 +868,16 @@ def process_week_results(week_id):
     """Process pick results and update user lives"""
     week = Week.query.get(week_id)
     picks = Pick.query.filter_by(week_id=week_id).all()
-    
+
     for pick in picks:
-        # Find the game with this team
+        # Find the game with this team that has a recorded result
         game = Game.query.filter_by(week_id=week_id).filter(
-            db.or_(Game.home_team_id == pick.team_id, 
-                   Game.away_team_id == pick.team_id)
+            db.or_(Game.home_team_id == pick.team_id,
+                   Game.away_team_id == pick.team_id),
+            Game.home_team_won != None
         ).first()
-        
-        if game and game.home_team_won is not None:
+
+        if game:
             # Determine if pick was correct
             if pick.team_id == game.home_team_id:
                 pick.is_correct = game.home_team_won
