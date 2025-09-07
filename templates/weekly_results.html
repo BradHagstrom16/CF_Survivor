@@ -121,15 +121,15 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% for i in range(pick.user.lives_remaining) %}
+                            {% for i in range(pick.lives_after) %}
                                 ❤️
                             {% endfor %}
-                            {% if pick.user.lives_remaining == 0 %}
+                            {% if pick.lives_after == 0 %}
                                 💀
                             {% endif %}
                         </td>
                         <td>
-                            {% if pick.user.is_eliminated %}
+                            {% if pick.was_eliminated %}
                                 <span class="badge bg-dark">Eliminated</span>
                             {% else %}
                                 <span class="badge bg-success">Active</span>
@@ -151,12 +151,15 @@
                             <span class="badge bg-warning">No Pick</span>
                         </td>
                         <td>
-                            {% for i in range(user.lives_remaining) %}
+                            {% for i in range(user.lives_after) %}
                                 ❤️
                             {% endfor %}
+                            {% if user.lives_after == 0 %}
+                                💀
+                            {% endif %}
                         </td>
                         <td>
-                            {% if user.is_eliminated %}
+                            {% if user.was_eliminated %}
                                 <span class="badge bg-dark">Eliminated</span>
                             {% else %}
                                 <span class="badge bg-warning">Active</span>
