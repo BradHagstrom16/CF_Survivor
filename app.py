@@ -822,26 +822,21 @@ def admin_process_autopicks(week_id):
 def admin_payments():
     """Admin page to track payments"""
     # Get all users
-    all_users = User.query.order_by(User.username).all()
-    
-    # Separate active and eliminated
-    active_users = [u for u in all_users if not u.is_eliminated]
-    eliminated_users = [u for u in all_users if u.is_eliminated]
-    
-    # Calculate statistics
-    paid_count = sum(1 for u in active_users if u.has_paid)
-    unpaid_count = len(active_users) - paid_count
-    
-    # Calculate total collected (assuming $20 entry fee - adjust as needed)
+    users = User.query.order_by(User.username).all()
+
+    # Calculate statistics across the full roster
+    paid_count = sum(1 for u in users if u.has_paid)
+    unpaid_count = len(users) - paid_count
+
+    # Calculate total collected (assuming $25 entry fee - adjust as needed)
     entry_fee = 25  # Change this to your actual entry fee
     total_collected = paid_count * entry_fee
-    
+
     return render_template('admin/payments.html',
-                         active_users=active_users,
-                         eliminated_users=eliminated_users,
+                         users=users,
                          paid_count=paid_count,
                          unpaid_count=unpaid_count,
-                         total_active=len(active_users),
+                         total_users=len(users),
                          total_collected=total_collected,
                          entry_fee=entry_fee)
 
