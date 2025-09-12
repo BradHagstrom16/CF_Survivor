@@ -12,6 +12,7 @@ from timezone_utils import (
 from config import DevelopmentConfig, ProductionConfig
 from extensions import db
 from datetime_utils import is_past_deadline, get_chicago_time, make_chicago_aware, format_chicago_time
+from sqlalchemy import func
 import os
 import pytz
 
@@ -152,12 +153,14 @@ def register():
     """User registration page"""
     if request.method == 'POST':
         # Get form data
-        username = request.form.get('username')
+        username = request.form.get('username', '').strip()
         email = request.form.get('email')
         password = request.form.get('password')
         
         # Check if username already exists
-        existing_username = User.query.filter_by(username=username).first()
+        existing_username = User.query.filter(
+            func.lower(User.username) == username.casefold()
+        ).first()
         if existing_username:
             flash('That username already exists.', 'error')
             return redirect(url_for('register'))
@@ -167,7 +170,13 @@ def register():
         if existing_email:
             flash('An account already exists for that email.', 'error')
             return redirect(url_for('register'))
-        
+
+        # Prevent registration after contest has started
+        first_week = Week.query.order_by(Week.week_number).first()
+        if first_week and deadline_has_passed(first_week.deadline):
+            flash('Registration closed. The pool has already started.', 'error')
+            return redirect(url_for('login'))
+
         # Create new user with hashed password
         new_user = User(
             username=username,
@@ -188,11 +197,13 @@ def register():
 def login():
     """User login page"""
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = request.form.get('username', '').strip()
         password = request.form.get('password')
         
         # Find user
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter(
+            func.lower(User.username) == username.casefold()
+        ).first()
         
         # Check password
         if user and check_password_hash(user.password, password):
@@ -523,7 +534,7 @@ def weekly_results(week_number=None):
         return redirect(url_for('index'))
 
     # Get all picks for this week with user information
-    picks = Pick.query.filter_by(week_id=week.id).join(User).order_by(User.username).all()
+    picks = Pick.query.filter_by(week_id=week.id).join(User).order_by(func.lower(User.username)).all()
     # Convert pick timestamps to pool timezone for accurate comparisons
     for pick in picks:
         pick.created_at = to_pool_time(pick.created_at)
@@ -550,7 +561,7 @@ def weekly_results(week_number=None):
             }
     
     # Get users who didn't pick (if any)
-    all_users = User.query.order_by(User.username).all()
+    all_users = User.query.order_by(func.lower(User.username)).all()
     users_who_picked = [pick.user_id for pick in picks]
     users_no_pick = [user for user in all_users if user.id not in users_who_picked]
 
@@ -775,7 +786,7 @@ def mark_results(week_id):
 @admin_required
 def admin_users():
     """Admin page to manage users"""
-    all_users = User.query.order_by(User.username).all()
+    all_users = User.query.order_by(func.lower(User.username)).all()
     return render_template('admin/users.html', users=all_users)
 
 @app.route('/admin/reset-password/<int:user_id>', methods=['POST'])
@@ -822,7 +833,7 @@ def admin_process_autopicks(week_id):
 def admin_payments():
     """Admin page to track payments"""
     # Get all users
-    users = User.query.order_by(User.username).all()
+    users = User.query.order_by(func.lower(User.username)).all()
 
     # Calculate statistics across the full roster
     paid_count = sum(1 for u in users if u.has_paid)
