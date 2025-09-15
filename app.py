@@ -72,9 +72,8 @@ def admin_required(f):
 @app.route('/')
 def index():
     """Home page - shows standings and current week info"""
-    # Check and process any needed auto-picks
-    check_and_process_autopicks()
-    
+     # Auto-picks are processed via scheduled tasks (see run_autopicks.py)
+
     # Get current week
     current_week = Week.query.filter_by(is_active=True).first()
     
