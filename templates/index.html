@@ -48,7 +48,6 @@
             {% if current_week %}
             <th>Week {{ current_week.week_number }} Pick</th>
             {% endif %}
-            <th>Status</th>
         </tr>
     </thead>
     <tbody>
@@ -93,7 +92,6 @@
                 {% endif %}
             </td>
             {% endif %}
-            <td><span class="badge bg-success">Active</span></td>
         </tr>
         {% endfor %}
     </tbody>
@@ -103,8 +101,8 @@
 <div class="alert alert-info mt-3">
     <h6>🏁 Tiebreaker Rules:</h6>
     <ol class="mb-0">
-        <li><strong>Lives Remaining:</strong> More lives = higher rank</li>
-        <li><strong>Cumulative Spread:</strong> Higher total = higher rank
+        <li><strong>Lives Remaining:</strong> Two lives is better than one</li>
+        <li><strong>Cumulative Spread:</strong> Lower is better
             <ul>
                 <li>Picking favorites adds to your total (e.g., -7 spread adds +7)</li>
                 <li>Picking underdogs subtracts from your total (e.g., +3 spread subtracts 3)</li>
@@ -121,14 +119,12 @@
             <thead>
                 <tr>
                     <th>Player</th>
-                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for user in eliminated_users %}
                 <tr>
                     <td>{{ user.display_name }}</td>
-                    <td><span class="badge bg-danger">Eliminated</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
