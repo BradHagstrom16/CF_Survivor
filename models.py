@@ -6,6 +6,59 @@ from datetime import datetime
 from datetime_utils import is_past_deadline, get_chicago_time
 from sqlalchemy import or_
 
+# Conference affiliations for all teams (2024-2025 season)
+TEAM_CONFERENCES = {
+    'Texas': 'SEC',
+    'Penn State': 'Big Ten',
+    'Ohio State': 'Big Ten',
+    'Clemson': 'ACC',
+    'Georgia': 'SEC',
+    'Notre Dame': 'Independent',
+    'Oregon': 'Big Ten',
+    'Alabama': 'SEC',
+    'LSU': 'SEC',
+    'Miami': 'ACC',
+    'Arizona State': 'Big 12',
+    'Illinois': 'Big Ten',
+    'South Carolina': 'SEC',
+    'Michigan': 'Big Ten',
+    'Florida': 'SEC',
+    'SMU': 'ACC',
+    'Kansas State': 'Big 12',
+    'Oklahoma': 'SEC',
+    'Texas A&M': 'SEC',
+    'Indiana': 'Big Ten',
+    'Ole Miss': 'SEC',
+    'Iowa State': 'Big 12',
+    'Texas Tech': 'Big 12',
+    'Tennessee': 'SEC',
+    'Boise State': 'Mountain West',
+    'BYU': 'Big 12',
+    'Utah': 'Big 12',
+    'Baylor': 'Big 12',
+    'Louisville': 'ACC',
+    'USC': 'Big Ten',
+    'Georgia Tech': 'ACC',
+    'Missouri': 'SEC',
+    'Tulane': 'American',
+    'Nebraska': 'Big Ten',
+    'UNLV': 'Mountain West',
+    'Toledo': 'MAC',
+    'Auburn': 'SEC',
+    'James Madison': 'Sun Belt',
+    'Memphis': 'American',
+    'Florida State': 'ACC',
+    'Duke': 'ACC',
+    'Liberty': 'Conference USA',
+    'Navy': 'American',
+    'Iowa': 'Big Ten',
+    'TCU': 'Big 12',
+    'Pittsburgh': 'ACC',
+    'Army': 'American',
+    'Colorado': 'Big 12',
+    'Louisiana-Lafayette': 'Sun Belt'
+}
+
 class User(UserMixin, db.Model):
     """User model - stores user account information"""
     id = db.Column(db.Integer, primary_key=True)
@@ -64,7 +117,13 @@ class Team(db.Model):
     """Team model - stores college football teams"""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    conference = db.Column(db.String(50))  # Optional: SEC, Big Ten, etc.
+    conference = db.Column(db.String(50))
+    national_title_odds = db.Column(db.String(16), nullable=True)
+
+    # ADD THIS METHOD TO YOUR EXISTING Team class
+    def get_conference(self):
+        """Get the conference for this team"""
+        return TEAM_CONFERENCES.get(self.name, 'Unknown')
     
 class Week(db.Model):
     """Week model - represents each week of the season"""

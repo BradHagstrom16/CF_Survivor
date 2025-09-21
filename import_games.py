@@ -6,12 +6,11 @@ All times are properly converted to Central timezone.
 """
 
 import requests
-import json
 import pytz
 from datetime import datetime, timedelta
 from app import app, db
+from db_maintenance import ensure_team_national_title_odds_column
 from models import Team, Week, Game
-
 
 class NCAAFootballAPIImporter:
     """
@@ -24,6 +23,9 @@ class NCAAFootballAPIImporter:
         # Your API key is hardcoded here for convenience
         self.api_key = "97cb8b654ed9acfd64eeb7e6e5837ed7"
         self.base_url = "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf/odds"
+        self.championship_url = (
+            "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf_championship_winner/odds"
+        )
         
         # Set up timezone objects
         self.utc_tz = pytz.UTC
@@ -128,6 +130,130 @@ class NCAAFootballAPIImporter:
         except Exception as e:
             print(f"Error fetching from API: {e}")
             return []
+
+    @staticmethod
+    def _format_american_odds(price):
+        """Return odds formatted with leading sign for display."""
+        try:
+            price_int = int(price)
+        except (TypeError, ValueError):
+            return None
+
+        if price_int > 0:
+            return f"+{price_int}"
+        return str(price_int)
+
+    def fetch_championship_odds(self):
+        """Fetch national championship outrights using DraftKings-first logic."""
+        params = {
+            'apiKey': self.api_key,
+            'regions': 'us',
+            'markets': 'outrights',
+            'oddsFormat': 'american'
+        }
+
+        try:
+            response = requests.get(self.championship_url, params=params)
+        except Exception as exc:
+            print(f"Error fetching championship odds: {exc}")
+            return {}, None
+
+        if response.status_code != 200:
+            print(
+                f"Championship odds request failed with status {response.status_code}: {response.text}"
+            )
+            return {}, None
+
+        data = response.json()
+        if not data:
+            print("No championship odds data returned by API.")
+            return {}, None
+
+        bookmakers = data[0].get('bookmakers', [])
+        if not bookmakers:
+            print("Championship odds missing bookmaker data.")
+            return {}, None
+
+        draftkings = None
+        fallback = None
+
+        for bookmaker in bookmakers:
+            if bookmaker.get('key') == 'draftkings':
+                draftkings = bookmaker
+                break
+            if not fallback:
+                fallback = bookmaker
+
+        selected = draftkings or fallback
+        fallback_title = None
+
+        if not selected:
+            print("No bookmaker contained outrights odds.")
+            return {}, None
+
+        if not draftkings and fallback:
+            fallback_title = fallback.get('title')
+
+        outcomes = []
+        for market in selected.get('markets', []):
+            if market.get('key') == 'outrights':
+                outcomes = market.get('outcomes', [])
+                break
+
+        odds_map = {}
+        for outcome in outcomes:
+            api_name = outcome.get('name')
+            price = outcome.get('price')
+            canonical = self.team_name_map.get(api_name, api_name)
+
+            if canonical in self.tracked_teams and price is not None:
+                formatted = self._format_american_odds(price)
+                if formatted:
+                    odds_map[canonical] = formatted
+
+        return odds_map, fallback_title
+
+    def update_championship_odds(self):
+        """Update each tracked team's stored championship odds."""
+        if not ensure_team_national_title_odds_column(app, db):
+            return
+
+        odds_map, fallback_title = self.fetch_championship_odds()
+
+        if not odds_map:
+            print("No national championship odds were updated.")
+            return
+
+        received = len(odds_map)
+
+        with app.app_context():
+            teams = Team.query.all()
+            updated = 0
+            cleared = 0
+
+            for team in teams:
+                new_value = odds_map.get(team.name)
+
+                if new_value is None:
+                    if team.national_title_odds is not None:
+                        team.national_title_odds = None
+                        cleared += 1
+                elif new_value != team.national_title_odds:
+                    team.national_title_odds = new_value
+                    updated += 1
+
+            db.session.commit()
+
+        print("\nUpdated national championship odds:")
+        print(f" - Received odds for {received} teams")
+        if updated:
+            print(f" - Applied new odds for {updated} teams")
+        else:
+            print(" - Existing odds already up to date")
+        if cleared:
+            print(f" - Cleared odds for {cleared} teams with no price")
+        if fallback_title:
+            print(f" - Used fallback bookmaker: {fallback_title}")
     
     def extract_spread_from_game(self, game_data):
         """
@@ -423,8 +549,9 @@ def main():
             print("Invalid date format, using suggested date")
             end_date = suggested_end
     
-    # Create importer and fetch games
+    # Create importer, refresh national title odds, and fetch games
     importer = NCAAFootballAPIImporter()
+    importer.update_championship_odds()
     games = importer.fetch_games_for_date_range(start_date, end_date)
     
     if not games:

@@ -11,6 +11,7 @@ from timezone_utils import (
 )
 from config import DevelopmentConfig, ProductionConfig
 from extensions import db
+from db_maintenance import ensure_team_national_title_odds_column
 from datetime_utils import is_past_deadline, get_chicago_time, make_chicago_aware, format_chicago_time
 from sqlalchemy import func
 import os
@@ -31,6 +32,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 load_dotenv()
 
 db.init_app(app)
+
+# Ensure schema updates needed by the application are applied
+ensure_team_national_title_odds_column(app, db, reporter=app.logger.info)
 
 # Import our models
 from models import User, Team, Week, Game, Pick
@@ -53,7 +57,7 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     """Tell Flask-Login how to find a user"""
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 def admin_required(f):
     """Decorator to require admin access for certain routes"""
@@ -263,7 +267,9 @@ def change_password():
 @app.route('/my-picks')
 @login_required
 def my_picks():
-    """Show user's pick history and available teams"""
+    """Show user's pick history and available teams organized by conference"""
+    from models import TEAM_CONFERENCES
+    
     # Get all user's picks with week and team information
     user_picks = Pick.query.filter_by(user_id=current_user.id).join(Week).order_by(Week.week_number).all()
     
@@ -295,6 +301,7 @@ def my_picks():
     # Separate teams into used and available
     used_teams = []
     available_teams = []
+    teams_by_conference = {}  # For organizing available teams by conference
     
     for team in all_teams:
         if team.id in used_team_ids:
@@ -309,6 +316,39 @@ def my_picks():
                     break
         else:
             available_teams.append(team)
+            
+            # Organize by conference
+            conference = TEAM_CONFERENCES.get(team.name, 'Unknown')
+            if conference not in teams_by_conference:
+                teams_by_conference[conference] = []
+            teams_by_conference[conference].append(team)
+    
+    # Calculate conference championship coverage
+    all_conferences = set()
+    conferences_with_teams = 0
+    conference_status = {}
+    conference_warnings = []
+    
+    # Get unique conferences (excluding Independent since no championship game)
+    for conf in TEAM_CONFERENCES.values():
+        if conf != 'Independent':
+            all_conferences.add(conf)
+    
+    # Check status for each conference
+    for conf in sorted(all_conferences):
+        team_count = len(teams_by_conference.get(conf, []))
+        conference_status[conf] = {'count': team_count}
+        
+        if team_count > 0:
+            conferences_with_teams += 1
+            
+        # Generate warnings (EXCLUDE Independent from warnings)
+        if conf != 'Independent':  # Don't warn about Independent
+            if team_count == 1:
+                team_name = teams_by_conference[conf][0].name
+                conference_warnings.append(f"Only {team_name} remaining for {conf} championship")
+            elif team_count == 0:
+                conference_warnings.append(f"No teams available for {conf} championship")
     
     # Get current week for context
     current_week = Week.query.filter_by(is_active=True).first()
@@ -319,10 +359,18 @@ def my_picks():
     incorrect_picks = sum(1 for pick in user_picks if pick.is_correct == False)
     pending_picks = sum(1 for pick in user_picks if pick.is_correct is None)
     
+    # Total conferences (excluding Independent)
+    total_conferences = len(all_conferences)
+    
     return render_template('my_picks.html',
                          user_picks=user_picks,
                          used_teams=used_teams,
                          available_teams=available_teams,
+                         teams_by_conference=teams_by_conference,
+                         conference_status=conference_status,
+                         conference_warnings=conference_warnings,
+                         conferences_with_teams=conferences_with_teams,
+                         total_conferences=total_conferences,
                          current_week=current_week,
                          total_picks=total_picks,
                          correct_picks=correct_picks,
