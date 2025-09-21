@@ -29,7 +29,7 @@
     
     <!-- Week Summary Cards -->
     <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-center">
                 <div class="card-body">
                     <h6>Total Picks</h6>
@@ -37,7 +37,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-center">
                 <div class="card-body bg-success text-white">
                     <h6>Correct</h6>
@@ -45,11 +45,19 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-center">
                 <div class="card-body bg-danger text-white">
                     <h6>Incorrect</h6>
                     <h3>{{ incorrect_picks|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body bg-warning">
+                    <h6>Pending</h6>
+                    <h3>{{ pending_picks|length }}</h3>
                 </div>
             </div>
         </div>
@@ -60,7 +68,7 @@
     <div class="alert alert-danger">
         <h5>💀 Eliminated This Week:</h5>
         {% for user in eliminated_this_week %}
-            <span class="badge bg-danger me-2">{{ user.display_name }}</span>
+            <span class="badge bg-danger me-2">{{ user.username }}</span>
         {% endfor %}
     </div>
     {% endif %}
@@ -86,18 +94,13 @@
                     {% for pick in picks %}
                     <tr class="{% if pick.is_correct == False %}table-danger{% elif pick.is_correct == True %}table-success{% endif %}">
                         <td>
-    <strong>{{ pick.user.display_name }}</strong>
-    {% if pick.created_at > week.deadline %}
-        <span class="badge bg-warning" title="Auto-pick">AUTO</span>
-    {% endif %}
-</td>
+                            <strong>{{ pick.user.username }}</strong>
+                            {% if pick.created_at > week.deadline %}
+                                <span class="badge bg-warning" title="Auto-pick">AUTO</span>
+                            {% endif %}
+                        </td>
                         <td>
-                            <strong>
-                                {{ pick.team.name }}
-                                {% if pick.team_id in game_results %}
-                                    ({{ "%+.1f"|format(game_results[pick.team_id]['spread']) }})
-                                {% endif %}
-                            </strong>
+                            <strong>{{ pick.team.name }}</strong>
                         </td>
                         <td>
                             {% if pick.team_id in game_results %}
@@ -121,48 +124,18 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% for i in range(pick.lives_after) %}
+                            {% for i in range(pick.user.lives_remaining) %}
                                 ❤️
                             {% endfor %}
-                            {% if pick.lives_after == 0 %}
+                            {% if pick.user.lives_remaining == 0 %}
                                 💀
                             {% endif %}
                         </td>
                         <td>
-                            {% if pick.was_eliminated %}
+                            {% if pick.user.is_eliminated %}
                                 <span class="badge bg-dark">Eliminated</span>
                             {% else %}
                                 <span class="badge bg-success">Active</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    
-                    <!-- Show users who didn't pick -->
-                    {% for user in users_no_pick %}
-                    <tr class="table-warning">
-                        <td>
-                            <strong>{{ user.display_name }}</strong>
-                        </td>
-                        <td colspan="2">
-                            <em>No pick submitted</em>
-                        </td>
-                        <td>
-                            <span class="badge bg-warning">No Pick</span>
-                        </td>
-                        <td>
-                            {% for i in range(user.lives_after) %}
-                                ❤️
-                            {% endfor %}
-                            {% if user.lives_after == 0 %}
-                                💀
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if user.was_eliminated %}
-                                <span class="badge bg-dark">Eliminated</span>
-                            {% else %}
-                                <span class="badge bg-warning">Active</span>
                             {% endif %}
                         </td>
                     </tr>

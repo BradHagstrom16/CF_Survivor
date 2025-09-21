@@ -56,6 +56,7 @@
                                 <tr>
                                     <th>Week</th>
                                     <th>Team Picked</th>
+                                    <th>Conference</th>
                                     <th>Spread</th>
                                     <th>Result</th>
                                 </tr>
@@ -70,6 +71,7 @@
                                         {% endif %}
                                     </td>
                                     <td>{{ pick.team.name }}</td>
+                                    <td><small class="text-muted">{{ pick.team.get_conference() }}</small></td>
                                     <td>
                                         {% if pick.spread_data %}
                                             {% if pick.spread_data.team_spread < 0 %}
@@ -97,7 +99,7 @@
                             </tbody>
                             <tfoot>
                                 <tr class="table-info">
-                                    <td colspan="2"><strong>Total Cumulative Spread:</strong></td>
+                                    <td colspan="3"><strong>Total Cumulative Spread:</strong></td>
                                     <td><strong>{{ "%.1f"|format(current_user.cumulative_spread) }}</strong></td>
                                     <td></td>
                                 </tr>
@@ -107,15 +109,29 @@
                         <div class="alert alert-info mt-2">
                             <small>
                                 <strong>How spread points work:</strong><br>
-                                • Don't forget: the primary goal is to pick a team that wins each week. More lives = first tiebreaker.<br>
                                 • Picking favorites (negative spread) adds points to your total<br>
                                 • Picking underdogs (positive spread) subtracts points from your total<br>
-                                • A cumlative spread closer to zero is better for secondary tiebreaker
+                                • Higher cumulative spread = better tiebreaker position
                             </small>
                         </div>
                     {% else %}
                         <p class="text-muted">No picks made yet.</p>
                     {% endif %}
+                </div>
+            </div>
+            
+            <!-- Strategy Tips (MOVED HERE from bottom) -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5>💡 Strategy Tips</h5>
+                    <ul>
+                        <li><strong>{{ available_teams|length }}</strong> teams available for future weeks</li>
+                        <li>Cumulative spread ({{ "%.1f"|format(current_user.cumulative_spread) }}) is the 2nd tiebreaker after lives remaining</li>
+                        <li>You must pick a conference title game winner for conference championship week</li>
+                        <li>You currently have coverage in <strong>{{ conferences_with_teams }}/{{ total_conferences }}</strong> conferences</li>
+                        <li>See "Teams Available" to track options by conference &#x1F440;&rarr;</li>
+                        <li>Available teams will reset once the CFP is set</li>
+                    </ul>
                 </div>
             </div>
             
@@ -145,22 +161,52 @@
         
         <!-- Available Teams Column -->
         <div class="col-md-5">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4>🎯 Teams Still Available ({{ available_teams|length }})</h4>
-                </div>
+            <!-- Available Teams by Conference (MOVED UP) -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white py-3">
+    <div class="d-flex justify-content-between align-items-center">
+        <h4 class="mb-0 me-3 text-nowrap">🎯 {{ available_teams|length }} Teams Available</h4>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-xs btn-outline-light" id="toggleOddsButton" style="font-size: 0.75rem;">
+                Show Nat'l Title Odds
+            </button>
+            <button type="button" class="btn btn-xs btn-outline-light" id="toggleAllAccordion" style="font-size: 0.75rem;">
+                Expand All
+            </button>
+        </div>
+    </div>
+</div>
                 <div class="card-body">
-                    {% if available_teams %}
-                        <div class="alert alert-info">
-                            <small>These teams have not been used yet and are available for future picks.</small>
-                        </div>
-                        <div class="row">
-                            {% for team in available_teams %}
-                            <div class="col-md-6 mb-2">
-                                <div class="badge bg-success w-100 p-2">
-                                    {{ team.name }}
+                    {% if teams_by_conference %}
+                        <div class="accordion" id="conferenceAccordion">
+                            {% for conf_name, teams in teams_by_conference.items() | sort %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                        <button class="accordion-button collapsed"
+                                                type="button"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#collapse{{ loop.index }}"
+                                                aria-expanded="false">
+                                            <strong>{{ conf_name }}</strong>
+                                            <span class="ms-auto me-2 badge bg-primary">{{ teams|length }} teams</span>
+                                        </button>
+                                    </h2>
+                                    <div id="collapse{{ loop.index }}" 
+                                         class="accordion-collapse collapse" 
+                                         data-bs-parent="#conferenceAccordion">
+                                        <div class="accordion-body">
+                                            <div class="row">
+                                                {% for team in teams | sort(attribute='name') %}
+                                                    <div class="col-12 mb-2">
+                                                        <div class="badge bg-success w-100 p-2">
+                                                            {{ team.name }}{% if team.national_title_odds %}<span class="team-odds d-none"> ({{ team.national_title_odds }})</span>{% endif %}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
                             {% endfor %}
                         </div>
                     {% else %}
@@ -169,6 +215,74 @@
                         </div>
                     {% endif %}
                 </div>
+            </div>
+            
+            <!-- Conference Championship Alert Box (MOVED DOWN) -->
+            <div class="card conference-alert mb-3">
+    <div class="card-body" style="background-color: #343a40;">
+                    <h5 class="mb-3">🏆 Conference Championship Coverage</h5>
+                    
+                    <div class="mb-2">
+                        <strong>Coverage Status: {{ conferences_with_teams }}/{{ total_conferences }} conferences</strong>
+                        {% if conferences_with_teams >= 8 %}
+                            <span class="badge bg-success ms-2">Excellent</span>
+                        {% elif conferences_with_teams >= 5 %}
+                            <span class="badge bg-warning ms-2">Good</span>
+                        {% else %}
+                            <span class="badge bg-danger ms-2">Limited</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row mt-3">
+                        {% for conf_name in conference_status %}
+                            <div class="col-6">
+                                {% if conference_status[conf_name]['count'] > 1 %}
+                                    <span class="conference-coverage-good">✓</span>
+                                {% elif conference_status[conf_name]['count'] == 1 %}
+                                    <span class="conference-coverage-warning">⚠</span>
+                                {% else %}
+                                    <span class="conference-coverage-danger">✗</span>
+                                {% endif %}
+                                {{ conf_name }}
+                                {% if conference_status[conf_name]['count'] == 1 %}
+                                    <small class="text-warning">(1 left)</small>
+                                {% elif conference_status[conf_name]['count'] == 0 %}
+                                    <small class="text-danger">(depleted)</small>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if conference_warnings %}
+    <!-- Toggle Button (shown by default) -->
+    <div id="warningsToggleButton" class="mt-3">
+        <button type="button" class="btn btn-sm btn-outline-warning w-100" id="showWarningsBtn">
+            ⚠️ Show Warnings ({{ conference_warnings|length }})
+        </button>
+    </div>
+    
+    <!-- Warning Box (hidden by default) -->
+    <div id="warningsBox" class="alert alert-warning mt-3 mb-0" style="display: none;">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <small class="fw-bold">Conference Championship Risks:</small>
+            <button type="button" class="btn btn-sm btn-outline-dark" id="hideWarningsBtn">
+                Hide Warnings
+            </button>
+        </div>
+        <small>
+            {% for warning in conference_warnings %}
+                • {{ warning }}<br>
+            {% endfor %}
+        </small>
+    </div>
+{% endif %}
+                </div>
+                <div class="mt-3 pt-2 border-top text-center">
+    <span class="text-white-50">📊</span> 
+    <a href="https://www.ncaa.com/standings/football/fbs" target="_blank" class="text-white text-decoration-none fw-bold">
+        View NCAA Conference Standings →
+    </a>
+</div>
             </div>
             
             <!-- Used Teams Reference -->
@@ -200,22 +314,101 @@
             </div>
         </div>
     </div>
-    
-    <!-- Strategy Tips -->
-    <div class="card mt-3">
-        <div class="card-body">
-            <h5>💡 Strategy Tips</h5>
-            <ul>
-                <li>You have <strong>{{ available_teams|length }}</strong> teams remaining for future weeks</li>
-                <li>Save strong teams for later weeks when fewer options are available</li>
-                <li>Consider upcoming schedules when planning your picks</li>
-                <li>Remember: teams favored by 16.5+ points won't be available that week</li>
-                <li>Your cumulative spread ({{ "%.1f"|format(current_user.cumulative_spread) }}) is used as a tiebreaker</li>
-                {% if available_teams|length < 10 %}
-                    <li class="text-warning"><strong>Warning:</strong> You're running low on available teams. Choose carefully!</li>
-                {% endif %}
-            </ul>
-        </div>
-    </div>
 </div>
+
+<!-- JavaScript for Expand All/Collapse All functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleAccordionButton = document.getElementById('toggleAllAccordion');
+    const toggleOddsButton = document.getElementById('toggleOddsButton');
+    const accordionItems = document.querySelectorAll('#conferenceAccordion .accordion-collapse');
+    let allExpanded = false;
+    let oddsVisible = false;
+
+    if (toggleOddsButton) {
+        toggleOddsButton.textContent = "Show Nat'l Title Odds";
+        document.querySelectorAll('.team-odds').forEach(function(span) {
+            span.classList.toggle('d-none', !oddsVisible);
+        });
+        toggleOddsButton.addEventListener('click', function() {
+            oddsVisible = !oddsVisible;
+            document.querySelectorAll('.team-odds').forEach(function(span) {
+                span.classList.toggle('d-none', !oddsVisible);
+            });
+            toggleOddsButton.textContent = oddsVisible ? "Hide Odds" : "Show Nat'l Title Odds";
+        });
+    }
+
+    if (toggleAccordionButton) {
+        toggleAccordionButton.addEventListener('click', function() {
+            if (allExpanded) {
+                // Collapse all
+                accordionItems.forEach(function(item) {
+                    item.classList.remove('show');
+                });
+                document.querySelectorAll('#conferenceAccordion .accordion-button').forEach(function(button) {
+                    button.classList.add('collapsed');
+                    button.setAttribute('aria-expanded', 'false');
+                });
+                toggleAccordionButton.textContent = 'Expand All';
+                allExpanded = false;
+            } else {
+                // Expand all
+                accordionItems.forEach(function(item) {
+                    item.classList.add('show');
+                });
+                document.querySelectorAll('#conferenceAccordion .accordion-button').forEach(function(button) {
+                    button.classList.remove('collapsed');
+                    button.setAttribute('aria-expanded', 'true');
+                });
+                toggleAccordionButton.textContent = 'Collapse All';
+                allExpanded = true;
+            }
+        });
+    }
+
+    // Update button text based on accordion state when items are manually toggled
+    document.querySelectorAll('#conferenceAccordion .accordion-button').forEach(function(button) {
+        button.addEventListener('click', function() {
+            setTimeout(function() {
+                if (!toggleAccordionButton) {
+                    return;
+                }
+                const expandedCount = document.querySelectorAll('#conferenceAccordion .accordion-collapse.show').length;
+                const totalCount = accordionItems.length;
+
+                if (expandedCount === totalCount) {
+                    toggleAccordionButton.textContent = 'Collapse All';
+                    allExpanded = true;
+                } else if (expandedCount === 0) {
+                    toggleAccordionButton.textContent = 'Expand All';
+                    allExpanded = false;
+                } else {
+                    toggleAccordionButton.textContent = 'Expand All';
+                    allExpanded = false;
+                }
+            }, 350); // Wait for accordion animation
+        });
+    });
+});
+
+// Warning box toggle functionality
+const showWarningsBtn = document.getElementById('showWarningsBtn');
+const hideWarningsBtn = document.getElementById('hideWarningsBtn');
+const warningsToggleButton = document.getElementById('warningsToggleButton');
+const warningsBox = document.getElementById('warningsBox');
+
+if (showWarningsBtn && hideWarningsBtn) {
+    showWarningsBtn.addEventListener('click', function() {
+        warningsToggleButton.style.display = 'none';
+        warningsBox.style.display = 'block';
+    });
+
+    hideWarningsBtn.addEventListener('click', function() {
+        warningsBox.style.display = 'none';
+        warningsToggleButton.style.display = 'block';
+    });
+}
+
+</script>
 {% endblock %}

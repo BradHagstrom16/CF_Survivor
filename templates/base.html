@@ -10,6 +10,30 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <style>
+        /* Conference card styles */
+        .conference-card {
+            border-left: 4px solid #0d6efd;
+            transition: transform 0.2s;
+        }
+        .conference-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .conference-card .card-header {
+            font-weight: bold;
+            background-color: #f8f9fa;
+        }
+        .conference-alert {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+        .conference-coverage-good { color: #198754; font-weight: bold; }
+        .conference-coverage-warning { color: #ffc107; font-weight: bold; }
+        .conference-coverage-danger { color: #dc3545; font-weight: bold; }
+    </style>
 </head>
 <body>
     <!-- Navigation bar -->
@@ -22,61 +46,58 @@
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-    <ul class="navbar-nav ms-auto">
-    {% if current_user.is_authenticated %}
-        <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('index') }}">Standings</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('weekly_results') }}">Weekly Results</a>
-        </li>
-        
-        {% if current_user.username in ['admin', 'commissioner'] %}
-        <!-- ... rest of nav ... -->
-                <li class="nav-item">
-                    <a class="nav-link text-warning" href="{{ url_for('admin_dashboard') }}">
-                        ⚙️ Admin
-                    </a>
-                </li>
-            {% endif %}
-            
-            <!-- User Dropdown Menu -->
-<li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" 
-       role="button" data-bs-toggle="dropdown" aria-expanded="false">
-        Welcome, {{ current_user.display_name }}!
-        (Lives: {{ current_user.lives_remaining }})
-    </a>
-    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-        <li>
-            <a class="dropdown-item" href="{{ url_for('my_picks') }}">
-                📋 My Picks & Strategy
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{{ url_for('change_password') }}">
-                🔒 Change Password
-            </a>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li>
-            <a class="dropdown-item" href="{{ url_for('logout') }}">
-                🚪 Logout
-            </a>
-        </li>
-    </ul>
-</li>
-        {% else %}
-            <!-- Show these links when user is not logged in -->
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('login') }}">Login</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('register') }}">Register</a>
-            </li>
-        {% endif %}
-    </ul>
-</div>
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">Standings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('weekly_results') }}">Weekly Results</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('my_picks') }}">📋 My Picks & Strategy</a>
+                        </li>
+                        
+                        {% if current_user.username in ['admin', 'commissioner'] %}
+                            <li class="nav-item">
+                                <a class="nav-link text-warning" href="{{ url_for('admin_dashboard') }}">
+                                    ⚙️ Admin
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        <!-- User Dropdown Menu -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" 
+                               role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Welcome, {{ current_user.username }}! 
+                                (Lives: {{ current_user.lives_remaining }})
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('change_password') }}">
+                                        🔒 Change Password
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('logout') }}">
+                                        🚪 Logout
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <!-- Show these links when user is not logged in -->
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
         </div>
     </nav>
     
