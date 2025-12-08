@@ -13,6 +13,7 @@ from config import DevelopmentConfig, ProductionConfig
 from extensions import db
 from db_maintenance import ensure_team_national_title_odds_column
 from datetime_utils import is_past_deadline, get_chicago_time, make_chicago_aware, format_chicago_time
+from display_utils import get_display_helpers, get_playoff_teams, is_week_playoff
 from sqlalchemy import func
 import os
 import pytz
@@ -25,7 +26,7 @@ if os.getenv('ENVIRONMENT') == 'production':
 else:
     app.config.from_object(DevelopmentConfig)
 
-# Initialize Flask app testing out changes
+# Initialize Flask app
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Load environment variables
@@ -39,16 +40,18 @@ ensure_team_national_title_odds_column(app, db, reporter=app.logger.info)
 # Import our models
 from models import User, Team, Week, Game, Pick
 
-# Make timezone functions available in all templates
+# Make timezone functions AND display helpers available in all templates
 @app.context_processor
-def inject_timezone_functions():
-    return {
+def inject_helpers():
+    helpers = {
         'format_deadline': format_deadline,
         'to_pool_time': to_pool_time,
         'get_current_time': get_current_time,
         'timezone': POOL_TZ_NAME,
-        'get_week_display_info': get_week_display_info  # Add this line
     }
+    # Add display helpers from display_utils
+    helpers.update(get_display_helpers())
+    return helpers
 
 # Setup login manager
 login_manager = LoginManager()
@@ -73,73 +76,6 @@ def admin_required(f):
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
-
-def get_week_display_info(week):
-    """
-    Get display information for a week including special naming and badges
-    
-    Returns dict with:
-    - display_name: How to show the week (e.g., "Week 1", "Conference Championship Week")
-    - badge_type: Type of badge to show (None, 'conference', 'playoff')
-    - progress_text: Text for "Week X of Y" display
-    """
-    if week.week_number <= 14:
-        # Regular season weeks
-        return {
-            'display_name': f'Week {week.week_number}',
-            'badge_type': None,
-            'progress_text': f'Week {week.week_number} of 15'
-        }
-    elif week.week_number == 15:
-        # Conference Championship Week
-        return {
-            'display_name': 'Conference Championship Week',
-            'badge_type': 'conference',
-            'progress_text': 'Conference Championships'
-        }
-    elif week.week_number == 16:
-        # Army vs Navy - this shouldn't be active but handle it
-        return {
-            'display_name': 'Army vs Navy Week',
-            'badge_type': 'skip',
-            'progress_text': 'No picks this week'
-        }
-    elif week.week_number == 17:
-        # CFP Round 1
-        return {
-            'display_name': 'CFP Round 1',
-            'badge_type': 'playoff',
-            'progress_text': 'College Football Playoff - Round 1'
-        }
-    elif week.week_number == 18:
-        # CFP Quarterfinals
-        return {
-            'display_name': 'CFP Quarterfinals',
-            'badge_type': 'playoff',
-            'progress_text': 'College Football Playoff - Quarterfinals'
-        }
-    elif week.week_number == 19:
-        # CFP Semifinals
-        return {
-            'display_name': 'CFP Semifinals',
-            'badge_type': 'playoff',
-            'progress_text': 'College Football Playoff - Semifinals'
-        }
-    elif week.week_number == 20:
-        # CFP Championship
-        return {
-            'display_name': 'CFP National Championship',
-            'badge_type': 'playoff',
-            'progress_text': 'College Football Playoff - Championship'
-        }
-    else:
-        # Fallback for any other week numbers
-        return {
-            'display_name': f'Week {week.week_number}',
-            'badge_type': None,
-            'progress_text': f'Week {week.week_number}'
-        }
-
 
 @app.route('/')
 def index():
@@ -214,8 +150,8 @@ def index():
                          user_pick_spread=user_pick_spread,
                          users=users,
                          eliminated_users=eliminated_users,
-                         week_picks=week_picks,  # Add this
-                         show_picks=show_picks,  # Add this
+                         week_picks=week_picks,
+                         show_picks=show_picks,
                          format_deadline=format_deadline,
                          timezone=POOL_TZ_NAME)
 
@@ -271,7 +207,7 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password')
         
-        # Find user
+        # Find user (case-insensitive)
         user = User.query.filter(
             func.lower(User.username) == username.casefold()
         ).first()
@@ -341,16 +277,23 @@ def my_picks():
     # Get current week for context
     current_week = Week.query.filter_by(is_active=True).first()
     
-    # Check if we're in CFP (week 17+)
-    in_cfp = current_week and current_week.week_number >= 17
+    # Check if we're in CFP (week 16+)
+    in_cfp = current_week and is_week_playoff(current_week)
     
     # Get all user's picks with week and team information
     user_picks = Pick.query.filter_by(user_id=current_user.id).join(Week).order_by(Week.week_number).all()
     
     # Add spread data and week display info to each pick
     for pick in user_picks:
-        # Get week display info
-        pick.week_display = get_week_display_info(pick.week)
+        # Get week display info using display_utils
+        from display_utils import get_week_display_name, get_week_short_label
+        pick.week_display = {
+            'display_name': get_week_display_name(pick.week),
+            'short_label': get_week_short_label(pick.week),
+            'badge_type': 'playoff' if is_week_playoff(pick.week) else (
+                'conference' if pick.week.week_number == 15 else None
+            )
+        }
         
         # Get spread data
         game = Game.query.filter_by(week_id=pick.week_id).filter(
@@ -375,12 +318,12 @@ def my_picks():
     
     # Determine which picks to consider for "used teams"
     if in_cfp:
-        # In CFP, only consider CFP picks (week 17+)
-        relevant_picks = [p for p in user_picks if p.week.week_number >= 17]
+        # In CFP, only consider CFP picks (week 16+)
+        relevant_picks = [p for p in user_picks if is_week_playoff(p.week)]
         phase_description = "CFP Phase"
     else:
         # Regular season + conf championship, consider weeks 1-15
-        relevant_picks = [p for p in user_picks if p.week.week_number <= 15]
+        relevant_picks = [p for p in user_picks if not is_week_playoff(p.week)]
         phase_description = "Regular Season"
     
     # Get IDs of teams already used in the current phase
@@ -390,6 +333,9 @@ def my_picks():
     used_teams = []
     available_teams = []
     teams_by_conference = {}  # For organizing available teams by conference
+    
+    # If in CFP, only consider the 12 playoff teams as available
+    playoff_team_names = get_playoff_teams()
     
     for team in all_teams:
         if team.id in used_team_ids:
@@ -404,13 +350,19 @@ def my_picks():
                     })
                     break
         else:
-            available_teams.append(team)
-            
-            # Organize by conference
-            conference = TEAM_CONFERENCES.get(team.name, 'Unknown')
-            if conference not in teams_by_conference:
-                teams_by_conference[conference] = []
-            teams_by_conference[conference].append(team)
+            # In CFP, only show playoff teams as available
+            if in_cfp:
+                if team.name in playoff_team_names:
+                    available_teams.append(team)
+            else:
+                # Regular season: all unused teams available
+                available_teams.append(team)
+                
+                # Organize by conference (only for regular season)
+                conference = TEAM_CONFERENCES.get(team.name, 'Unknown')
+                if conference not in teams_by_conference:
+                    teams_by_conference[conference] = []
+                teams_by_conference[conference].append(team)
     
     # Calculate conference championship coverage (only relevant for regular season)
     all_conferences = set()
@@ -450,7 +402,17 @@ def my_picks():
     total_conferences = len(all_conferences)
     
     # Get week display info for current week
-    current_week_display = get_week_display_info(current_week) if current_week else None
+    from display_utils import get_week_display_name, get_week_short_label
+    current_week_display = None
+    if current_week:
+        current_week_display = {
+            'display_name': get_week_display_name(current_week),
+            'short_label': get_week_short_label(current_week),
+            'badge_type': 'playoff' if is_week_playoff(current_week) else (
+                'conference' if current_week.week_number == 15 else None
+            ),
+            'progress_text': get_week_display_name(current_week)
+        }
     
     return render_template('my_picks.html',
                          user_picks=user_picks,
@@ -473,8 +435,7 @@ def my_picks():
 @app.route('/pick/<int:week_number>', methods=['GET', 'POST'])
 @login_required
 def make_pick(week_number):
-    """Page for making picks for a specific week"""
-
+    """Page for making picks for a specific week - WITH PLAYOFF LOGIC"""
     
     chicago_tz = pytz.timezone('America/Chicago')
     current_time = datetime.now(chicago_tz)
@@ -540,16 +501,28 @@ def make_pick(week_number):
                     flash('Cannot pick this team - their game has already started.', 'error')
                     return redirect(url_for('make_pick', week_number=week_number))
 
-            # Get teams user has already used in previous weeks
-            used_teams = db.session.query(Pick.team_id).filter(
-                Pick.user_id == current_user.id,
-                Pick.week_id != week.id
-            ).all()
+            # *** PLAYOFF LOGIC: Determine which picks to check for "used teams" ***
+            if is_week_playoff(week):
+                # In playoff weeks, only check OTHER PLAYOFF WEEKS
+                used_teams = db.session.query(Pick.team_id).join(Week).filter(
+                    Pick.user_id == current_user.id,
+                    Week.is_playoff_week == True,
+                    Pick.week_id != week.id  # Exclude current week
+                ).all()
+            else:
+                # In regular season weeks (including CCW), check ALL NON-PLAYOFF WEEKS
+                used_teams = db.session.query(Pick.team_id).join(Week).filter(
+                    Pick.user_id == current_user.id,
+                    Week.is_playoff_week == False,
+                    Pick.week_id != week.id  # Exclude current week
+                ).all()
+            
             used_team_ids = [t[0] for t in used_teams]
 
-            # Verify team hasn't been used before
+            # Verify team hasn't been used before in the current phase
             if team_id in used_team_ids:
-                flash('You have already used this team in a previous week.', 'error')
+                phase_name = "playoff rounds" if is_week_playoff(week) else "previous weeks"
+                flash(f'You have already used this team in {phase_name}.', 'error')
                 return redirect(url_for('make_pick', week_number=week_number))
 
             # Save or update pick
@@ -583,11 +556,22 @@ def make_pick(week_number):
             if game.game_time.tzinfo is None:
                 game.game_time = chicago_tz.localize(game.game_time)
     
-    # Get teams user has already used in previous weeks
-    used_teams = db.session.query(Pick.team_id).filter(
-        Pick.user_id == current_user.id,
-        Pick.week_id != week.id
-    ).all()
+    # *** PLAYOFF LOGIC: Determine which teams user has already used ***
+    if is_week_playoff(week):
+        # In playoff weeks, only check OTHER PLAYOFF WEEKS
+        used_teams = db.session.query(Pick.team_id).join(Week).filter(
+            Pick.user_id == current_user.id,
+            Week.is_playoff_week == True,
+            Pick.week_id != week.id
+        ).all()
+    else:
+        # In regular season weeks (including CCW), check ALL NON-PLAYOFF WEEKS
+        used_teams = db.session.query(Pick.team_id).join(Week).filter(
+            Pick.user_id == current_user.id,
+            Week.is_playoff_week == False,
+            Pick.week_id != week.id
+        ).all()
+    
     used_team_ids = [t[0] for t in used_teams]
     
     # Build eligible teams list
@@ -794,7 +778,7 @@ def admin_dashboard():
 @app.route('/admin/week/new', methods=['GET', 'POST'])
 @admin_required
 def create_week():
-    """Create a new week"""
+    """Create a new week - WITH PLAYOFF SUPPORT"""
     if request.method == 'POST':
         import pytz
         from datetime import datetime
@@ -809,7 +793,7 @@ def create_week():
         start_date_naive = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
         deadline_naive = datetime.strptime(deadline_str, '%Y-%m-%dT%H:%M')
         
-        # CRITICAL: Localize as Chicago time (this interprets the input AS Chicago time)
+        # CRITICAL: Localize as Chicago time
         start_date = chicago_tz.localize(start_date_naive)
         deadline = chicago_tz.localize(deadline_naive)
         
@@ -819,17 +803,24 @@ def create_week():
             flash(f'Week {week_number} already exists!', 'error')
             return redirect(url_for('create_week'))
         
-        # Create new week - store with timezone info
+        # Get playoff week settings
+        is_playoff = request.form.get('is_playoff_week') == 'on'
+        round_name = request.form.get('round_name', '').strip() or None
+        
+        # Create new week
         new_week = Week(
             week_number=week_number,
             start_date=start_date,
             deadline=deadline,
-            is_active=False
+            is_active=False,
+            is_playoff_week=is_playoff,
+            round_name=round_name
         )
         db.session.add(new_week)
         db.session.commit()
         
-        flash(f'Week {week_number} created successfully!', 'success')
+        display_name = round_name if round_name else f"Week {week_number}"
+        flash(f'{display_name} created successfully!', 'success')
         return redirect(url_for('admin_dashboard'))
     
     return render_template('admin/create_week.html', timezone='America/Chicago')
@@ -1011,9 +1002,15 @@ def admin_update_payment(user_id):
 
 # Helper Functions
 def process_week_results(week_id):
-    """Process pick results and update user lives"""
+    """Process pick results and update user lives - WITH REVIVAL RULE"""
     week = Week.query.get(week_id)
     picks = Pick.query.filter_by(week_id=week_id).all()
+
+    # Track users who had 1 life at START of week (for revival rule)
+    users_with_one_life_before = []
+    for pick in picks:
+        if pick.user.lives_remaining == 1:
+            users_with_one_life_before.append(pick.user.id)
 
     for pick in picks:
         # Find the game with this team that has a recorded result
@@ -1042,9 +1039,28 @@ def process_week_results(week_id):
         pick.user.calculate_cumulative_spread()
     
     db.session.commit()
+    
+    # *** REVIVAL RULE: Check if ALL users with 1 life lost ***
+    if users_with_one_life_before:
+        # Get current status of those users
+        users_to_check = User.query.filter(User.id.in_(users_with_one_life_before)).all()
+        
+        # Check if ALL of them are now at 0 lives
+        all_eliminated = all(user.lives_remaining == 0 for user in users_to_check)
+        
+        if all_eliminated:
+            # REVIVAL: Give them all back 1 life
+            for user in users_to_check:
+                user.lives_remaining = 1
+                user.is_eliminated = False
+            
+            db.session.commit()
+            
+            # Log this event (silent - no user notification)
+            app.logger.info(f"REVIVAL RULE ACTIVATED: Week {week.week_number} - {len(users_to_check)} users revived")
 
 def process_autopicks(week_id):
-    """Process auto-picks for users who missed the deadline"""
+    """Process auto-picks for users who missed the deadline - WITH PLAYOFF SUPPORT"""
     week = Week.query.get(week_id)
     week.deadline = make_aware(week.deadline)
     
@@ -1075,11 +1091,22 @@ def process_autopicks(week_id):
     ]
     
     for user in users_needing_autopick:
-        # Get teams user has already used in previous weeks
-        used_teams = db.session.query(Pick.team_id).filter(
-            Pick.user_id == user.id,
-            Pick.week_id != week_id
-        ).all()
+        # *** PLAYOFF LOGIC: Determine which teams user has already used ***
+        if is_week_playoff(week):
+            # In playoff weeks, only check OTHER PLAYOFF WEEKS
+            used_teams = db.session.query(Pick.team_id).join(Week).filter(
+                Pick.user_id == user.id,
+                Week.is_playoff_week == True,
+                Pick.week_id != week_id
+            ).all()
+        else:
+            # In regular season weeks (including CCW), check ALL NON-PLAYOFF WEEKS
+            used_teams = db.session.query(Pick.team_id).join(Week).filter(
+                Pick.user_id == user.id,
+                Week.is_playoff_week == False,
+                Pick.week_id != week_id
+            ).all()
+        
         used_team_ids = [t[0] for t in used_teams]
         
         # Find best available team
@@ -1140,11 +1167,11 @@ def process_autopicks(week_id):
         # Make the auto-pick if we found an eligible team
         if best_team:
             auto_pick = Pick(
-        user_id=user.id,
-        week_id=week_id,
-        team_id=best_team.id,
-        created_at=get_utc_time()  # Store in UTC, aware
-    )
+                user_id=user.id,
+                week_id=week_id,
+                team_id=best_team.id,
+                created_at=get_utc_time()  # Store in UTC, aware
+            )
             db.session.add(auto_pick)
             
             # Recalculate user's cumulative spread
