@@ -20,8 +20,40 @@
                     <div class="mb-3">
                         <label for="week_number" class="form-label">Week Number</label>
                         <input type="number" class="form-control" id="week_number" 
-                               name="week_number" min="1" max="15" required>
-                        <small class="text-muted">Typically weeks 1-15 for regular season</small>
+                               name="week_number" min="1" max="20" required>
+                        <small class="text-muted">1-15 for regular season, 16-20 for playoffs</small>
+                    </div>
+                    
+                    <!-- PLAYOFF WEEK FIELDS -->
+                    <div class="card mb-3 bg-light">
+                        <div class="card-body">
+                            <h6>Special Week Options</h6>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="is_playoff_week" 
+                                       name="is_playoff_week" onchange="toggleRoundName()">
+                                <label class="form-check-label" for="is_playoff_week">
+                                    <strong>This is a playoff week</strong>
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    Check this for CFP weeks (16+) - allows team reuse
+                                </small>
+                            </div>
+                            
+                            <div class="mb-3" id="round_name_group">
+                                <label for="round_name" class="form-label">Custom Display Name</label>
+                                <input type="text" class="form-control" id="round_name" 
+                                       name="round_name" placeholder="e.g., CFP Round 1" maxlength="100">
+                                <small class="text-muted">
+                                    Examples:<br>
+                                    • Week 15: "Conference Championship Week"<br>
+                                    • Week 16: "CFP Round 1"<br>
+                                    • Week 17: "CFP Quarterfinals"<br>
+                                    • Week 18: "CFP Semifinals"<br>
+                                    • Week 19: "CFP Championship"
+                                </small>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -43,6 +75,38 @@
                 </form>
             </div>
         </div>
+        
+        <!-- Quick Reference Card -->
+        <div class="card mt-3">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">📅 Week Number Reference</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0 small">
+                    <li><strong>Weeks 1-14:</strong> Regular Season</li>
+                    <li><strong>Week 15:</strong> Conference Championships (set name to "Conference Championship Week")</li>
+                    <li><strong>Week 16:</strong> CFP Round 1 (check playoff box)</li>
+                    <li><strong>Week 17:</strong> CFP Quarterfinals (check playoff box)</li>
+                    <li><strong>Week 18:</strong> CFP Semifinals (check playoff box)</li>
+                    <li><strong>Week 19:</strong> CFP Championship (check playoff box)</li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+function toggleRoundName() {
+    // Optional: You could auto-fill round name based on playoff checkbox
+    // For now, just make it more visible when playoff is checked
+    const checkbox = document.getElementById('is_playoff_week');
+    const roundNameGroup = document.getElementById('round_name_group');
+    
+    if (checkbox.checked) {
+        roundNameGroup.classList.add('border', 'border-warning', 'p-2', 'rounded');
+    } else {
+        roundNameGroup.classList.remove('border', 'border-warning', 'p-2', 'rounded');
+    }
+}
+</script>
 {% endblock %}
