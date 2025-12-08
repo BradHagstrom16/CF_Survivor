@@ -4,7 +4,29 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h2>📋 My Picks & Strategy Center</h2>
+    <!-- Add progress badge in top-right corner -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>📋 My Picks & Strategy Center</h2>
+        {% if current_week_display %}
+            <div>
+                {% if current_week_display.badge_type == 'conference' %}
+                    <span class="badge bg-warning text-dark fs-6">🏆 {{ current_week_display.progress_text }}</span>
+                {% elif current_week_display.badge_type == 'playoff' %}
+                    <span class="badge bg-danger fs-6">🏈 {{ current_week_display.progress_text }}</span>
+                {% else %}
+                    <span class="badge bg-secondary fs-6">{{ current_week_display.progress_text }}</span>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- CFP Phase Alert (if applicable) -->
+    {% if in_cfp %}
+    <div class="alert alert-danger mb-3">
+        <h5>🏈 College Football Playoff Phase</h5>
+        <p class="mb-0">All teams have been reset! You can pick any team again, but once used in the CFP, they cannot be picked again in later CFP rounds.</p>
+    </div>
+    {% endif %}
     
     <!-- Statistics Cards -->
     <div class="row mb-4">
@@ -65,9 +87,14 @@
                                 {% for pick in user_picks %}
                                 <tr>
                                     <td>
-                                        <strong>Week {{ pick.week.week_number }}</strong>
+                                        <strong>{{ pick.week_display.display_name if pick.week_display else 'Week ' + pick.week.week_number|string }}</strong>
                                         {% if pick.week.is_active %}
                                             <span class="badge bg-primary">Current</span>
+                                        {% endif %}
+                                        {% if pick.week_display and pick.week_display.badge_type == 'conference' %}
+                                            <span class="badge bg-warning text-dark">Conf Champ</span>
+                                        {% elif pick.week_display and pick.week_display.badge_type == 'playoff' %}
+                                            <span class="badge bg-danger">Playoff</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ pick.team.name }}</td>
@@ -120,17 +147,23 @@
                 </div>
             </div>
             
-            <!-- Strategy Tips (MOVED HERE from bottom) -->
+            <!-- Strategy Tips (Dynamic based on phase) -->
             <div class="card mt-3">
                 <div class="card-body">
                     <h5>💡 Strategy Tips</h5>
                     <ul>
-                        <li><strong>{{ available_teams|length }}</strong> teams available for future weeks</li>
+                        <li><strong>{{ available_teams|length }}</strong> teams available for {{ phase_description|default('future weeks') }}</li>
                         <li>Cumulative spread ({{ "%.1f"|format(current_user.cumulative_spread) }}) is the 2nd tiebreaker after lives remaining</li>
+                        {% if not in_cfp %}
                         <li>You must pick a conference title game winner for conference championship week</li>
                         <li>You currently have coverage in <strong>{{ conferences_with_teams }}/{{ total_conferences }}</strong> conferences</li>
-                        <li>See "Teams Available" to track options by conference &#x1F440;&rarr;</li>
+                        <li>See "Teams Available" to track options by conference 👀→</li>
+                        {% endif %}
+                        {% if in_cfp %}
+                        <li class="text-danger"><strong>CFP Note:</strong> All teams have been reset! You can use any team again, but only once during the playoff.</li>
+                        {% else %}
                         <li>Available teams will reset once the CFP is set</li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
@@ -161,22 +194,28 @@
         
         <!-- Available Teams Column -->
         <div class="col-md-5">
-            <!-- Available Teams by Conference (MOVED UP) -->
+            <!-- Available Teams by Conference -->
             <div class="card mb-3">
                 <div class="card-header bg-primary text-white py-3">
-    <div class="d-flex justify-content-between align-items-center">
-        <h4 class="mb-0 me-3 text-nowrap">🎯 {{ available_teams|length }} Teams Available</h4>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-xs btn-outline-light" id="toggleOddsButton" style="font-size: 0.75rem;">
-                Show Nat'l Title Odds
-            </button>
-            <button type="button" class="btn btn-xs btn-outline-light" id="toggleAllAccordion" style="font-size: 0.75rem;">
-                Expand All
-            </button>
-        </div>
-    </div>
-</div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0 me-3 text-nowrap">🎯 {{ available_teams|length }} Teams Available</h4>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-xs btn-outline-light" id="toggleOddsButton" style="font-size: 0.75rem;">
+                                Show Nat'l Title Odds
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-light" id="toggleAllAccordion" style="font-size: 0.75rem;">
+                                Expand All
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body">
+                    {% if in_cfp %}
+                        <div class="alert alert-info mb-3">
+                            <strong>CFP Phase:</strong> All teams reset! Pick any team for each CFP round.
+                        </div>
+                    {% endif %}
+                    
                     {% if teams_by_conference %}
                         <div class="accordion" id="conferenceAccordion">
                             {% for conf_name, teams in teams_by_conference.items() | sort %}
@@ -211,15 +250,16 @@
                         </div>
                     {% else %}
                         <div class="alert alert-warning">
-                            <strong>No teams remaining!</strong> You've used all available teams.
+                            <strong>No teams remaining!</strong> You've used all available teams for {{ phase_description|default('this phase') }}.
                         </div>
                     {% endif %}
                 </div>
             </div>
             
-            <!-- Conference Championship Alert Box (MOVED DOWN) -->
+            <!-- Conference Championship Alert Box (hide during CFP) -->
+            {% if not in_cfp %}
             <div class="card conference-alert mb-3">
-    <div class="card-body" style="background-color: #343a40;">
+                <div class="card-body" style="background-color: #343a40;">
                     <h5 class="mb-3">🏆 Conference Championship Coverage</h5>
                     
                     <div class="mb-2">
@@ -254,41 +294,42 @@
                     </div>
                     
                     {% if conference_warnings %}
-    <!-- Toggle Button (shown by default) -->
-    <div id="warningsToggleButton" class="mt-3">
-        <button type="button" class="btn btn-sm btn-outline-warning w-100" id="showWarningsBtn">
-            ⚠️ Show Warnings ({{ conference_warnings|length }})
-        </button>
-    </div>
-    
-    <!-- Warning Box (hidden by default) -->
-    <div id="warningsBox" class="alert alert-warning mt-3 mb-0" style="display: none;">
-        <div class="d-flex justify-content-between align-items-start mb-2">
-            <small class="fw-bold">Conference Championship Risks:</small>
-            <button type="button" class="btn btn-sm btn-outline-dark" id="hideWarningsBtn">
-                Hide Warnings
-            </button>
-        </div>
-        <small>
-            {% for warning in conference_warnings %}
-                • {{ warning }}<br>
-            {% endfor %}
-        </small>
-    </div>
-{% endif %}
+                    <!-- Toggle Button (shown by default) -->
+                    <div id="warningsToggleButton" class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-warning w-100" id="showWarningsBtn">
+                            ⚠️ Show Warnings ({{ conference_warnings|length }})
+                        </button>
+                    </div>
+                    
+                    <!-- Warning Box (hidden by default) -->
+                    <div id="warningsBox" class="alert alert-warning mt-3 mb-0" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <small class="fw-bold">Conference Championship Risks:</small>
+                            <button type="button" class="btn btn-sm btn-outline-dark" id="hideWarningsBtn">
+                                Hide Warnings
+                            </button>
+                        </div>
+                        <small>
+                            {% for warning in conference_warnings %}
+                                • {{ warning }}<br>
+                            {% endfor %}
+                        </small>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="mt-3 pt-2 border-top text-center">
-    <span class="text-white-50">📊</span> 
-    <a href="https://www.ncaa.com/standings/football/fbs" target="_blank" class="text-white text-decoration-none fw-bold">
-        View NCAA Conference Standings →
-    </a>
-</div>
+                    <span class="text-white-50">📊</span> 
+                    <a href="https://www.ncaa.com/standings/football/fbs" target="_blank" class="text-white text-decoration-none fw-bold">
+                        View NCAA Conference Standings →
+                    </a>
+                </div>
             </div>
+            {% endif %}
             
-            <!-- Used Teams Reference -->
+            <!-- Used Teams Reference (with phase clarity) -->
             <div class="card mt-3">
                 <div class="card-header bg-secondary text-white">
-                    <h4>🚫 Teams Already Used ({{ used_teams|length }})</h4>
+                    <h4>🚫 Teams Already Used {% if in_cfp %}(CFP Only){% endif %} ({{ used_teams|length }})</h4>
                 </div>
                 <div class="card-body">
                     {% if used_teams %}
@@ -296,8 +337,8 @@
                             {% for item in used_teams | sort(attribute='week') %}
                             <div class="col-md-6 mb-2">
                                 <div class="badge bg-secondary w-100 p-2" 
-                                     title="Used in Week {{ item.week }}">
-                                    {{ item.team.name }} (W{{ item.week }})
+                                     title="Used in {{ item.week_display|default('Week ' + item.week|string) }}">
+                                    {{ item.team.name }} ({{ item.week_display|default('W' + item.week|string) }})
                                     {% if item.is_correct == True %}
                                         ✓
                                     {% elif item.is_correct == False %}
@@ -308,7 +349,7 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <p class="text-muted">No teams used yet.</p>
+                        <p class="text-muted">No teams used yet{% if in_cfp %} in the CFP{% endif %}.</p>
                     {% endif %}
                 </div>
             </div>
