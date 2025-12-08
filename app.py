@@ -46,7 +46,8 @@ def inject_timezone_functions():
         'format_deadline': format_deadline,
         'to_pool_time': to_pool_time,
         'get_current_time': get_current_time,
-        'timezone': POOL_TZ_NAME
+        'timezone': POOL_TZ_NAME,
+        'get_week_display_info': get_week_display_info  # Add this line
     }
 
 # Setup login manager
@@ -72,6 +73,73 @@ def admin_required(f):
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
+
+def get_week_display_info(week):
+    """
+    Get display information for a week including special naming and badges
+    
+    Returns dict with:
+    - display_name: How to show the week (e.g., "Week 1", "Conference Championship Week")
+    - badge_type: Type of badge to show (None, 'conference', 'playoff')
+    - progress_text: Text for "Week X of Y" display
+    """
+    if week.week_number <= 14:
+        # Regular season weeks
+        return {
+            'display_name': f'Week {week.week_number}',
+            'badge_type': None,
+            'progress_text': f'Week {week.week_number} of 15'
+        }
+    elif week.week_number == 15:
+        # Conference Championship Week
+        return {
+            'display_name': 'Conference Championship Week',
+            'badge_type': 'conference',
+            'progress_text': 'Conference Championships'
+        }
+    elif week.week_number == 16:
+        # Army vs Navy - this shouldn't be active but handle it
+        return {
+            'display_name': 'Army vs Navy Week',
+            'badge_type': 'skip',
+            'progress_text': 'No picks this week'
+        }
+    elif week.week_number == 17:
+        # CFP Round 1
+        return {
+            'display_name': 'CFP Round 1',
+            'badge_type': 'playoff',
+            'progress_text': 'College Football Playoff - Round 1'
+        }
+    elif week.week_number == 18:
+        # CFP Quarterfinals
+        return {
+            'display_name': 'CFP Quarterfinals',
+            'badge_type': 'playoff',
+            'progress_text': 'College Football Playoff - Quarterfinals'
+        }
+    elif week.week_number == 19:
+        # CFP Semifinals
+        return {
+            'display_name': 'CFP Semifinals',
+            'badge_type': 'playoff',
+            'progress_text': 'College Football Playoff - Semifinals'
+        }
+    elif week.week_number == 20:
+        # CFP Championship
+        return {
+            'display_name': 'CFP National Championship',
+            'badge_type': 'playoff',
+            'progress_text': 'College Football Playoff - Championship'
+        }
+    else:
+        # Fallback for any other week numbers
+        return {
+            'display_name': f'Week {week.week_number}',
+            'badge_type': None,
+            'progress_text': f'Week {week.week_number}'
+        }
+
 
 @app.route('/')
 def index():
@@ -270,11 +338,21 @@ def my_picks():
     """Show user's pick history and available teams organized by conference"""
     from models import TEAM_CONFERENCES
     
+    # Get current week for context
+    current_week = Week.query.filter_by(is_active=True).first()
+    
+    # Check if we're in CFP (week 17+)
+    in_cfp = current_week and current_week.week_number >= 17
+    
     # Get all user's picks with week and team information
     user_picks = Pick.query.filter_by(user_id=current_user.id).join(Week).order_by(Week.week_number).all()
     
-    # Add spread data to each pick
+    # Add spread data and week display info to each pick
     for pick in user_picks:
+        # Get week display info
+        pick.week_display = get_week_display_info(pick.week)
+        
+        # Get spread data
         game = Game.query.filter_by(week_id=pick.week_id).filter(
             db.or_(Game.home_team_id == pick.team_id, 
                    Game.away_team_id == pick.team_id)
@@ -295,8 +373,18 @@ def my_picks():
     # Get all teams
     all_teams = Team.query.order_by(Team.name).all()
     
-    # Get IDs of teams already used
-    used_team_ids = [pick.team_id for pick in user_picks]
+    # Determine which picks to consider for "used teams"
+    if in_cfp:
+        # In CFP, only consider CFP picks (week 17+)
+        relevant_picks = [p for p in user_picks if p.week.week_number >= 17]
+        phase_description = "CFP Phase"
+    else:
+        # Regular season + conf championship, consider weeks 1-15
+        relevant_picks = [p for p in user_picks if p.week.week_number <= 15]
+        phase_description = "Regular Season"
+    
+    # Get IDs of teams already used in the current phase
+    used_team_ids = [pick.team_id for pick in relevant_picks]
     
     # Separate teams into used and available
     used_teams = []
@@ -305,12 +393,13 @@ def my_picks():
     
     for team in all_teams:
         if team.id in used_team_ids:
-            # Find which week this team was used
-            for pick in user_picks:
+            # Find which week this team was used in current phase
+            for pick in relevant_picks:
                 if pick.team_id == team.id:
                     used_teams.append({
                         'team': team,
                         'week': pick.week.week_number,
+                        'week_display': pick.week_display['display_name'],
                         'is_correct': pick.is_correct
                     })
                     break
@@ -323,35 +412,33 @@ def my_picks():
                 teams_by_conference[conference] = []
             teams_by_conference[conference].append(team)
     
-    # Calculate conference championship coverage
+    # Calculate conference championship coverage (only relevant for regular season)
     all_conferences = set()
     conferences_with_teams = 0
     conference_status = {}
     conference_warnings = []
     
-    # Get unique conferences (excluding Independent since no championship game)
-    for conf in TEAM_CONFERENCES.values():
-        if conf != 'Independent':
-            all_conferences.add(conf)
-    
-    # Check status for each conference
-    for conf in sorted(all_conferences):
-        team_count = len(teams_by_conference.get(conf, []))
-        conference_status[conf] = {'count': team_count}
+    if not in_cfp:  # Only show conference coverage during regular season
+        # Get unique conferences (excluding Independent since no championship game)
+        for conf in TEAM_CONFERENCES.values():
+            if conf != 'Independent':
+                all_conferences.add(conf)
         
-        if team_count > 0:
-            conferences_with_teams += 1
+        # Check status for each conference
+        for conf in sorted(all_conferences):
+            team_count = len(teams_by_conference.get(conf, []))
+            conference_status[conf] = {'count': team_count}
             
-        # Generate warnings (EXCLUDE Independent from warnings)
-        if conf != 'Independent':  # Don't warn about Independent
-            if team_count == 1:
-                team_name = teams_by_conference[conf][0].name
-                conference_warnings.append(f"Only {team_name} remaining for {conf} championship")
-            elif team_count == 0:
-                conference_warnings.append(f"No teams available for {conf} championship")
-    
-    # Get current week for context
-    current_week = Week.query.filter_by(is_active=True).first()
+            if team_count > 0:
+                conferences_with_teams += 1
+                
+            # Generate warnings (EXCLUDE Independent from warnings)
+            if conf != 'Independent':  # Don't warn about Independent
+                if team_count == 1:
+                    team_name = teams_by_conference[conf][0].name
+                    conference_warnings.append(f"Only {team_name} remaining for {conf} championship")
+                elif team_count == 0:
+                    conference_warnings.append(f"No teams available for {conf} championship")
     
     # Calculate some statistics
     total_picks = len(user_picks)
@@ -361,6 +448,9 @@ def my_picks():
     
     # Total conferences (excluding Independent)
     total_conferences = len(all_conferences)
+    
+    # Get week display info for current week
+    current_week_display = get_week_display_info(current_week) if current_week else None
     
     return render_template('my_picks.html',
                          user_picks=user_picks,
@@ -372,6 +462,9 @@ def my_picks():
                          conferences_with_teams=conferences_with_teams,
                          total_conferences=total_conferences,
                          current_week=current_week,
+                         current_week_display=current_week_display,
+                         in_cfp=in_cfp,
+                         phase_description=phase_description,
                          total_picks=total_picks,
                          correct_picks=correct_picks,
                          incorrect_picks=incorrect_picks,

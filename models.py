@@ -103,6 +103,7 @@ class User(UserMixin, db.Model):
 
         self.cumulative_spread = total
         return total
+    
     @property
     def display_name(self):
         """Returns display name for the user"""
@@ -120,7 +121,6 @@ class Team(db.Model):
     conference = db.Column(db.String(50))
     national_title_odds = db.Column(db.String(16), nullable=True)
 
-    # ADD THIS METHOD TO YOUR EXISTING Team class
     def get_conference(self):
         """Get the conference for this team"""
         return TEAM_CONFERENCES.get(self.name, 'Unknown')
@@ -133,6 +133,8 @@ class Week(db.Model):
     deadline = db.Column(db.DateTime, nullable=False)  # When picks lock
     is_active = db.Column(db.Boolean, default=False)  # Current week flag
     is_complete = db.Column(db.Boolean, default=False)  # Week results finalized
+    is_playoff_week = db.Column(db.Boolean, default=False)  # Playoff week flag
+    round_name = db.Column(db.String(100), nullable=True)  # Display name (e.g., "CFP Round 1")
     
 class Game(db.Model):
     """Game model - stores individual games and spreads"""

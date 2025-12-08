@@ -1,0 +1,158 @@
+{
+  "Texas": {
+    "odds": 1200,
+    "timestamp": "2025-09-23T12:51:59.905939"
+  },
+  "Texas Tech": {
+    "odds": 250,
+    "timestamp": "2025-09-23T12:51:59.905959"
+  },
+  "Arizona State": {
+    "odds": 550,
+    "timestamp": "2025-09-23T12:51:59.905964"
+  },
+  "TCU": {
+    "odds": 550,
+    "timestamp": "2025-09-23T12:51:59.905967"
+  },
+  "Iowa": {
+    "odds": 10000,
+    "timestamp": "2025-09-23T12:51:59.905970"
+  },
+  "Iowa State": {
+    "odds": 650,
+    "timestamp": "2025-09-23T12:51:59.905973"
+  },
+  "Utah": {
+    "odds": 1200,
+    "timestamp": "2025-09-23T12:51:59.905976"
+  },
+  "Baylor": {
+    "odds": 1400,
+    "timestamp": "2025-09-23T12:51:59.905979"
+  },
+  "BYU": {
+    "odds": 2000,
+    "timestamp": "2025-09-23T12:51:59.905981"
+  },
+  "Kansas State": {
+    "odds": 4000,
+    "timestamp": "2025-09-23T12:51:59.905983"
+  },
+  "Colorado": {
+    "odds": 6000,
+    "timestamp": "2025-09-23T12:51:59.905986"
+  },
+  "Oklahoma": {
+    "odds": 850,
+    "timestamp": "2025-09-23T12:51:59.905989"
+  },
+  "Miami": {
+    "odds": 120,
+    "timestamp": "2025-09-23T12:51:59.905992"
+  },
+  "Georgia Tech": {
+    "odds": 360,
+    "timestamp": "2025-09-23T12:51:59.905994"
+  },
+  "Georgia": {
+    "odds": 275,
+    "timestamp": "2025-09-23T12:51:59.905996"
+  },
+  "Florida State": {
+    "odds": -110,
+    "timestamp": "2025-09-23T12:51:59.905999"
+  },
+  "Florida": {
+    "odds": -110,
+    "timestamp": "2025-09-23T12:51:59.906001"
+  },
+  "Louisville": {
+    "odds": 1000,
+    "timestamp": "2025-09-23T12:51:59.906003"
+  },
+  "SMU": {
+    "odds": 2500,
+    "timestamp": "2025-09-23T12:51:59.906005"
+  },
+  "Duke": {
+    "odds": 3000,
+    "timestamp": "2025-09-23T12:51:59.906008"
+  },
+  "Pittsburgh": {
+    "odds": 7500,
+    "timestamp": "2025-09-23T12:51:59.906011"
+  },
+  "Clemson": {
+    "odds": 7500,
+    "timestamp": "2025-09-23T12:51:59.906013"
+  },
+  "Ohio State": {
+    "odds": 200,
+    "timestamp": "2025-09-23T12:51:59.906018"
+  },
+  "Penn State": {
+    "odds": 260,
+    "timestamp": "2025-09-23T12:51:59.906021"
+  },
+  "Oregon": {
+    "odds": 275,
+    "timestamp": "2025-09-23T12:51:59.906024"
+  },
+  "USC": {
+    "odds": 1200,
+    "timestamp": "2025-09-23T12:51:59.906026"
+  },
+  "Michigan": {
+    "odds": 30000,
+    "timestamp": "2025-09-23T12:51:59.906030"
+  },
+  "Indiana": {
+    "odds": 1500,
+    "timestamp": "2025-09-23T12:51:59.906032"
+  },
+  "Illinois": {
+    "odds": 10000,
+    "timestamp": "2025-09-23T12:51:59.906035"
+  },
+  "Nebraska": {
+    "odds": 15000,
+    "timestamp": "2025-09-23T12:51:59.906038"
+  },
+  "LSU": {
+    "odds": 500,
+    "timestamp": "2025-09-23T12:51:59.906040"
+  },
+  "Alabama": {
+    "odds": 600,
+    "timestamp": "2025-09-23T12:51:59.906043"
+  },
+  "Texas A&M": {
+    "odds": 1200,
+    "timestamp": "2025-09-23T12:51:59.906045"
+  },
+  "Ole Miss": {
+    "odds": 1600,
+    "timestamp": "2025-09-23T12:51:59.906047"
+  },
+  "Missouri": {
+    "odds": 2200,
+    "timestamp": "2025-09-23T12:51:59.906050"
+  },
+  "Tennessee": {
+    "odds": 3000,
+    "timestamp": "2025-09-23T12:51:59.906052"
+  },
+  "Auburn": {
+    "odds": 5000,
+    "timestamp": "2025-09-23T12:51:59.906054"
+  },
+  "South Carolina": {
+    "odds": 20000,
+    "timestamp": "2025-09-23T12:51:59.906056"
+  },
+  "Army": {
+    "odds": -105,
+    "timestamp": "2025-09-23T12:51:59.906058"
+  }
+}
