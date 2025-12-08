@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Week {{ week.week_number }} Results - CFB Survivor Pool{% endblock %}
+{% block title %}{{ get_week_display_name(week) }} Results - CFB Survivor Pool{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <h2>📊 Week {{ week.week_number }} Results & Picks</h2>
+    <h2>📊 {{ get_week_display_name(week) }} Results & Picks</h2>
     
     <!-- Week Navigation -->
     <div class="card mb-3">
@@ -13,7 +13,7 @@
                 {% for w in viewable_weeks %}
                     <a href="{{ url_for('weekly_results', week_number=w.week_number) }}" 
                        class="btn {% if w.week_number == week.week_number %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                        Week {{ w.week_number }}
+                        {{ get_week_short_label(w) }}
                         {% if w.is_complete %}
                             ✓
                         {% endif %}
@@ -76,7 +76,7 @@
     <!-- Main Results Table -->
     <div class="card">
         <div class="card-header bg-dark text-white">
-            <h4>All Picks for Week {{ week.week_number }}</h4>
+            <h4>All Picks for {{ get_week_display_name(week) }}</h4>
         </div>
         <div class="card-body">
             <table class="table table-striped table-hover">

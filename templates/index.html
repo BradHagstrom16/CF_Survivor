@@ -13,8 +13,16 @@
         <h1>Survivor Pool Standings</h1>
         
        {% if current_week %}
+    <!-- CFP Banner (if in playoff mode) -->
+    {% if is_week_playoff(current_week) %}
+    <div class="alert alert-danger">
+        <h5>🏈 COLLEGE FOOTBALL PLAYOFF</h5>
+        <p class="mb-0">All teams have been reset! You can pick any of the 12 playoff teams, even if you used them in the regular season.</p>
+    </div>
+    {% endif %}
+    
     <div class="alert alert-info">
-        <h5>Current Week: Week {{ current_week.week_number }}</h5>
+        <h5>Current Week: {{ get_week_display_name(current_week) }}</h5>
         <p>Deadline: {{ format_deadline(current_week.deadline) }}</p>
         
         {% if current_user.is_authenticated %}
@@ -24,7 +32,7 @@
                 </div>
             {% elif user_pick %}
                 <div class="alert alert-success mb-2">
-                    <strong>Your Week {{ current_week.week_number }} Pick: {{ user_pick.team.name }}</strong>
+                    <strong>Your {{ get_week_display_name(current_week) }} Pick: {{ user_pick.team.name }}</strong>
                 </div>
                 <a href="{{ url_for('make_pick', week_number=current_week.week_number) }}" 
                    class="btn btn-warning">Change Your Pick</a>
@@ -46,7 +54,7 @@
             <th>Lives Remaining</th>
             <th>Cumulative Spread</th>
             {% if current_week %}
-            <th>Week {{ current_week.week_number }} Pick</th>
+            <th>{{ get_week_display_name(current_week) }} Pick</th>
             {% endif %}
         </tr>
     </thead>

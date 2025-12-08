@@ -9,9 +9,7 @@
         <h2>📋 My Picks & Strategy Center</h2>
         {% if current_week_display %}
             <div>
-                {% if current_week_display.badge_type == 'conference' %}
-                    <span class="badge bg-warning text-dark fs-6">🏆 {{ current_week_display.progress_text }}</span>
-                {% elif current_week_display.badge_type == 'playoff' %}
+                {% if current_week_display.badge_type == 'playoff' %}
                     <span class="badge bg-danger fs-6">🏈 {{ current_week_display.progress_text }}</span>
                 {% else %}
                     <span class="badge bg-secondary fs-6">{{ current_week_display.progress_text }}</span>
@@ -73,7 +71,9 @@
                 </div>
                 <div class="card-body">
                     {% if user_picks %}
-                        <table class="table table-striped">
+                        <!-- Regular Season Section -->
+                        <h5 class="mb-3">Regular Season & Conference Championships (Weeks 1-15)</h5>
+                        <table class="table table-striped table-sm mb-4">
                             <thead>
                                 <tr>
                                     <th>Week</th>
@@ -85,20 +85,67 @@
                             </thead>
                             <tbody>
                                 {% for pick in user_picks %}
+                                    {% if pick.week.week_number <= 15 %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ pick.week_display.display_name if pick.week_display else 'Week ' + pick.week.week_number|string }}</strong>
+                                            {% if pick.week.is_active %}
+                                                <span class="badge bg-primary">Current</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ pick.team.name }}</td>
+                                        <td><small class="text-muted">{{ pick.team.get_conference() }}</small></td>
+                                        <td>
+                                            {% if pick.spread_data %}
+                                                {% if pick.spread_data.team_spread < 0 %}
+                                                    <span class="text-success">{{ pick.spread_data.team_spread }}</span>
+                                                {% elif pick.spread_data.team_spread > 0 %}
+                                                    <span class="text-danger">+{{ pick.spread_data.team_spread }}</span>
+                                                {% else %}
+                                                    PK
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if pick.is_correct == True %}
+                                                <span class="badge bg-success">✓ Won</span>
+                                            {% elif pick.is_correct == False %}
+                                                <span class="badge bg-danger">✗ Lost</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Pending</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        
+                        <!-- College Football Playoff Section -->
+                        {% set playoff_picks = user_picks | selectattr('week.week_number', 'ge', 16) | list %}
+                        {% if playoff_picks %}
+                        <h5 class="mb-3 text-danger">🏈 College Football Playoff (Weeks 16+)</h5>
+                        <table class="table table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Round</th>
+                                    <th>Team Picked</th>
+                                    <th>Spread</th>
+                                    <th>Result</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pick in playoff_picks %}
                                 <tr>
                                     <td>
                                         <strong>{{ pick.week_display.display_name if pick.week_display else 'Week ' + pick.week.week_number|string }}</strong>
                                         {% if pick.week.is_active %}
-                                            <span class="badge bg-primary">Current</span>
-                                        {% endif %}
-                                        {% if pick.week_display and pick.week_display.badge_type == 'conference' %}
-                                            <span class="badge bg-warning text-dark">Conf Champ</span>
-                                        {% elif pick.week_display and pick.week_display.badge_type == 'playoff' %}
-                                            <span class="badge bg-danger">Playoff</span>
+                                            <span class="badge bg-danger">Current</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ pick.team.name }}</td>
-                                    <td><small class="text-muted">{{ pick.team.get_conference() }}</small></td>
                                     <td>
                                         {% if pick.spread_data %}
                                             {% if pick.spread_data.team_spread < 0 %}
@@ -124,6 +171,10 @@
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                        </table>
+                        {% endif %}
+                        
+                        <table class="table table-bordered mt-3">
                             <tfoot>
                                 <tr class="table-info">
                                     <td colspan="3"><strong>Total Cumulative Spread:</strong></td>
@@ -138,7 +189,7 @@
                                 <strong>How spread points work:</strong><br>
                                 • Picking favorites (negative spread) adds points to your total<br>
                                 • Picking underdogs (positive spread) subtracts points from your total<br>
-                                • Higher cumulative spread = better tiebreaker position
+                                • Lower cumulative spread = better tiebreaker position
                             </small>
                         </div>
                     {% else %}
@@ -203,9 +254,11 @@
                             <button type="button" class="btn btn-xs btn-outline-light" id="toggleOddsButton" style="font-size: 0.75rem;">
                                 Show Nat'l Title Odds
                             </button>
+                            {% if not in_cfp %}
                             <button type="button" class="btn btn-xs btn-outline-light" id="toggleAllAccordion" style="font-size: 0.75rem;">
                                 Expand All
                             </button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -214,44 +267,62 @@
                         <div class="alert alert-info mb-3">
                             <strong>CFP Phase:</strong> All teams reset! Pick any team for each CFP round.
                         </div>
-                    {% endif %}
-                    
-                    {% if teams_by_conference %}
-                        <div class="accordion" id="conferenceAccordion">
-                            {% for conf_name, teams in teams_by_conference.items() | sort %}
-                                <div class="accordion-item">
-                                    <h2 class="accordion-header" id="heading{{ loop.index }}">
-                                        <button class="accordion-button collapsed"
-                                                type="button"
-                                                data-bs-toggle="collapse"
-                                                data-bs-target="#collapse{{ loop.index }}"
-                                                aria-expanded="false">
-                                            <strong>{{ conf_name }}</strong>
-                                            <span class="ms-auto me-2 badge bg-primary">{{ teams|length }} teams</span>
-                                        </button>
-                                    </h2>
-                                    <div id="collapse{{ loop.index }}" 
-                                         class="accordion-collapse collapse" 
-                                         data-bs-parent="#conferenceAccordion">
-                                        <div class="accordion-body">
-                                            <div class="row">
-                                                {% for team in teams | sort(attribute='name') %}
-                                                    <div class="col-12 mb-2">
-                                                        <div class="badge bg-success w-100 p-2">
-                                                            {{ team.name }}{% if team.national_title_odds %}<span class="team-odds d-none"> ({{ team.national_title_odds }})</span>{% endif %}
+                        
+                        {% if available_teams %}
+                            <!-- Simple list for CFP - no conference grouping -->
+                            <div class="row">
+                                {% for team in available_teams | sort(attribute='name') %}
+                                    <div class="col-12 mb-2">
+                                        <div class="badge bg-success w-100 p-2">
+                                            {{ team.name }}{% if team.national_title_odds %}<span class="team-odds d-none"> ({{ team.national_title_odds }})</span>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <strong>No teams remaining!</strong> You've used all available teams for {{ phase_description|default('this phase') }}.
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <!-- Regular season: Conference accordion -->
+                        {% if teams_by_conference %}
+                            <div class="accordion" id="conferenceAccordion">
+                                {% for conf_name, teams in teams_by_conference.items() | sort %}
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                            <button class="accordion-button collapsed"
+                                                    type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#collapse{{ loop.index }}"
+                                                    aria-expanded="false">
+                                                <strong>{{ conf_name }}</strong>
+                                                <span class="ms-auto me-2 badge bg-primary">{{ teams|length }} teams</span>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse{{ loop.index }}" 
+                                             class="accordion-collapse collapse" 
+                                             data-bs-parent="#conferenceAccordion">
+                                            <div class="accordion-body">
+                                                <div class="row">
+                                                    {% for team in teams | sort(attribute='name') %}
+                                                        <div class="col-12 mb-2">
+                                                            <div class="badge bg-success w-100 p-2">
+                                                                {{ team.name }}{% if team.national_title_odds %}<span class="team-odds d-none"> ({{ team.national_title_odds }})</span>{% endif %}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                {% endfor %}
+                                                    {% endfor %}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="alert alert-warning">
-                            <strong>No teams remaining!</strong> You've used all available teams for {{ phase_description|default('this phase') }}.
-                        </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <strong>No teams remaining!</strong> You've used all available teams for {{ phase_description|default('this phase') }}.
+                            </div>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -380,7 +451,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (toggleAccordionButton) {
+    // Only set up accordion toggle if accordion exists (regular season)
+    if (toggleAccordionButton && accordionItems.length > 0) {
         toggleAccordionButton.addEventListener('click', function() {
             if (allExpanded) {
                 // Collapse all
@@ -406,31 +478,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 allExpanded = true;
             }
         });
-    }
 
-    // Update button text based on accordion state when items are manually toggled
-    document.querySelectorAll('#conferenceAccordion .accordion-button').forEach(function(button) {
-        button.addEventListener('click', function() {
-            setTimeout(function() {
-                if (!toggleAccordionButton) {
-                    return;
-                }
-                const expandedCount = document.querySelectorAll('#conferenceAccordion .accordion-collapse.show').length;
-                const totalCount = accordionItems.length;
+        // Update button text based on accordion state when items are manually toggled
+        document.querySelectorAll('#conferenceAccordion .accordion-button').forEach(function(button) {
+            button.addEventListener('click', function() {
+                setTimeout(function() {
+                    const expandedCount = document.querySelectorAll('#conferenceAccordion .accordion-collapse.show').length;
+                    const totalCount = accordionItems.length;
 
-                if (expandedCount === totalCount) {
-                    toggleAccordionButton.textContent = 'Collapse All';
-                    allExpanded = true;
-                } else if (expandedCount === 0) {
-                    toggleAccordionButton.textContent = 'Expand All';
-                    allExpanded = false;
-                } else {
-                    toggleAccordionButton.textContent = 'Expand All';
-                    allExpanded = false;
-                }
-            }, 350); // Wait for accordion animation
+                    if (expandedCount === totalCount) {
+                        toggleAccordionButton.textContent = 'Collapse All';
+                        allExpanded = true;
+                    } else if (expandedCount === 0) {
+                        toggleAccordionButton.textContent = 'Expand All';
+                        allExpanded = false;
+                    } else {
+                        toggleAccordionButton.textContent = 'Expand All';
+                        allExpanded = false;
+                    }
+                }, 350); // Wait for accordion animation
+            });
         });
-    });
+    }
 });
 
 // Warning box toggle functionality

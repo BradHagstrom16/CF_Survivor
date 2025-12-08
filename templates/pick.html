@@ -3,7 +3,7 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8">
-        <h2>Make Your Pick - Week {{ week.week_number }}</h2>
+        <h2>Make Your Pick - {{ get_week_display_name(week) }}</h2>
         
         <div class="alert alert-warning">
             <strong>Deadline:</strong> {{ format_deadline(week.deadline) }}
@@ -16,7 +16,7 @@
             {% if pick_locked %}
                 Your pick is locked and cannot be changed.
             {% else %}
-                You can update your pick anytime before the deadline or before your chosen team’s game begins, whichever comes first.
+                You can update your pick anytime before the deadline or before your chosen team's game begins, whichever comes first.
             {% endif %}
         </small>
     </div>
@@ -70,7 +70,7 @@
         {% endif %}
         
         <div class="mt-4">
-            <h4>Week {{ week.week_number }} Games</h4>
+            <h4>{{ get_week_display_name(week) }} Games</h4>
             <p class="text-muted">Showing matchups for teams you can pick (not favored by more than 16 points and not previously picked)</p>
             
             <div class="row">
