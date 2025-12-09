@@ -13,7 +13,11 @@ from config import DevelopmentConfig, ProductionConfig
 from extensions import db
 from db_maintenance import ensure_team_national_title_odds_column
 from datetime_utils import is_past_deadline, get_chicago_time, make_chicago_aware, format_chicago_time
-from display_utils import get_display_helpers, get_playoff_teams, is_week_playoff
+from display_utils import (
+    get_display_helpers, get_playoff_teams, is_week_playoff,
+    get_cfp_eliminated_teams, get_cfp_active_teams, get_cfp_teams_on_bye,
+    get_cfp_teams_in_week, get_cfp_available_teams_for_user
+)
 from sqlalchemy import func
 import os
 import pytz
@@ -334,26 +338,58 @@ def my_picks():
     available_teams = []
     teams_by_conference = {}  # For organizing available teams by conference
     
-    # If in CFP, only consider the 12 playoff teams as available
-    playoff_team_names = get_playoff_teams()
+    # CFP-specific variables
+    cfp_eliminated_teams = []
+    cfp_teams_on_bye = []
     
-    for team in all_teams:
-        if team.id in used_team_ids:
-            # Find which week this team was used in current phase
-            for pick in relevant_picks:
-                if pick.team_id == team.id:
-                    used_teams.append({
-                        'team': team,
-                        'week': pick.week.week_number,
-                        'week_display': pick.week_display['display_name'],
-                        'is_correct': pick.is_correct
-                    })
-                    break
-        else:
-            # In CFP, only show playoff teams as available
-            if in_cfp:
-                if team.name in playoff_team_names:
-                    available_teams.append(team)
+    if in_cfp:
+        # Get CFP elimination status
+        eliminated_names = get_cfp_eliminated_teams()
+        teams_playing_this_week = get_cfp_teams_in_week(current_week)
+        active_team_names = get_cfp_active_teams()
+        playoff_team_names = set(get_playoff_teams())
+        
+        # Build lists for template
+        for team in all_teams:
+            if team.name not in playoff_team_names:
+                continue  # Skip non-playoff teams
+            
+            if team.id in used_team_ids:
+                # User already picked this team in CFP
+                for pick in relevant_picks:
+                    if pick.team_id == team.id:
+                        used_teams.append({
+                            'team': team,
+                            'week': pick.week.week_number,
+                            'week_display': pick.week_display['display_name'],
+                            'is_correct': pick.is_correct
+                        })
+                        break
+            elif team.name in eliminated_names:
+                # Team has been eliminated from playoffs
+                cfp_eliminated_teams.append(team)
+            elif team.name not in teams_playing_this_week:
+                # Team is on bye this round
+                cfp_teams_on_bye.append(team)
+            else:
+                # Team is available to pick
+                available_teams.append(team)
+    else:
+        # Regular season logic (unchanged)
+        playoff_team_names = get_playoff_teams()
+        
+        for team in all_teams:
+            if team.id in used_team_ids:
+                # Find which week this team was used in current phase
+                for pick in relevant_picks:
+                    if pick.team_id == team.id:
+                        used_teams.append({
+                            'team': team,
+                            'week': pick.week.week_number,
+                            'week_display': pick.week_display['display_name'],
+                            'is_correct': pick.is_correct
+                        })
+                        break
             else:
                 # Regular season: all unused teams available
                 available_teams.append(team)
@@ -430,7 +466,9 @@ def my_picks():
                          total_picks=total_picks,
                          correct_picks=correct_picks,
                          incorrect_picks=incorrect_picks,
-                         pending_picks=pending_picks)
+                         pending_picks=pending_picks,
+                         cfp_eliminated_teams=cfp_eliminated_teams,
+                         cfp_teams_on_bye=cfp_teams_on_bye)
 
 @app.route('/pick/<int:week_number>', methods=['GET', 'POST'])
 @login_required
@@ -479,6 +517,11 @@ def make_pick(week_number):
             if current_time > game_time:
                 pick_locked = True
 
+    # Get CFP elimination info if playoff week
+    cfp_eliminated_names = set()
+    if is_week_playoff(week):
+        cfp_eliminated_names = get_cfp_eliminated_teams()
+
     # Handle POST request (submitting/updating pick)
     if request.method == 'POST':
         if pick_locked:
@@ -499,6 +542,13 @@ def make_pick(week_number):
 
                 if current_time > game_time:
                     flash('Cannot pick this team - their game has already started.', 'error')
+                    return redirect(url_for('make_pick', week_number=week_number))
+
+            # Check if team has been eliminated from CFP
+            if is_week_playoff(week):
+                team = Team.query.get(team_id)
+                if team and team.name in cfp_eliminated_names:
+                    flash('Cannot pick this team - they have been eliminated from the playoffs.', 'error')
                     return redirect(url_for('make_pick', week_number=week_number))
 
             # *** PLAYOFF LOGIC: Determine which picks to check for "used teams" ***
@@ -581,6 +631,10 @@ def make_pick(week_number):
     for game in games:
         # Check home team
         if game.home_team and game.home_team.id not in used_team_ids and game.home_team.id not in teams_added:
+            # Check if team has been eliminated from CFP
+            if is_week_playoff(week) and game.home_team.name in cfp_eliminated_names:
+                continue  # Skip eliminated teams
+            
             # Check spread eligibility (not favored by more than 16)
             if game.home_team_spread >= -16:
                 # Check if game has started
@@ -598,6 +652,10 @@ def make_pick(week_number):
         
         # Check away team
         if game.away_team and game.away_team.id not in used_team_ids and game.away_team.id not in teams_added:
+            # Check if team has been eliminated from CFP
+            if is_week_playoff(week) and game.away_team.name in cfp_eliminated_names:
+                continue  # Skip eliminated teams
+            
             # Check spread eligibility (not favored by more than 16)
             away_spread = -game.home_team_spread
             if away_spread >= -16:
@@ -1060,7 +1118,7 @@ def process_week_results(week_id):
             app.logger.info(f"REVIVAL RULE ACTIVATED: Week {week.week_number} - {len(users_to_check)} users revived")
 
 def process_autopicks(week_id):
-    """Process auto-picks for users who missed the deadline - WITH PLAYOFF SUPPORT"""
+    """Process auto-picks for users who missed the deadline - WITH PLAYOFF SUPPORT AND CFP ELIMINATION"""
     week = Week.query.get(week_id)
     week.deadline = make_aware(week.deadline)
     
@@ -1090,6 +1148,11 @@ def process_autopicks(week_id):
         if not game.game_time or make_aware(game.game_time) > current_time
     ]
     
+    # Get CFP eliminated teams if this is a playoff week
+    cfp_eliminated_names = set()
+    if is_week_playoff(week):
+        cfp_eliminated_names = get_cfp_eliminated_teams()
+    
     for user in users_needing_autopick:
         # *** PLAYOFF LOGIC: Determine which teams user has already used ***
         if is_week_playoff(week):
@@ -1117,6 +1180,10 @@ def process_autopicks(week_id):
         for game in games:
             # Check home team
             if game.home_team and game.home_team_id not in used_team_ids:
+                # Skip if team is eliminated from CFP
+                if is_week_playoff(week) and game.home_team.name in cfp_eliminated_names:
+                    continue
+                
                 # Convert spread to favoritism (positive = favored by that many points)
                 home_favoritism = -game.home_team_spread
                 
@@ -1129,6 +1196,10 @@ def process_autopicks(week_id):
             
             # Check away team
             if game.away_team and game.away_team_id not in used_team_ids:
+                # Skip if team is eliminated from CFP
+                if is_week_playoff(week) and game.away_team.name in cfp_eliminated_names:
+                    continue
+                
                 # Away team's favoritism is opposite of home spread
                 away_favoritism = game.home_team_spread  # If positive, away team is favored
                 
@@ -1147,6 +1218,10 @@ def process_autopicks(week_id):
             for game in games:
                 # Check home team as underdog
                 if game.home_team and game.home_team_id not in used_team_ids:
+                    # Skip if team is eliminated from CFP
+                    if is_week_playoff(week) and game.home_team.name in cfp_eliminated_names:
+                        continue
+                    
                     if game.home_team_spread > 0:  # Home team is underdog
                         if game.home_team_spread < smallest_underdog_points:
                             smallest_underdog_points = game.home_team_spread
@@ -1155,6 +1230,10 @@ def process_autopicks(week_id):
                 
                 # Check away team as underdog
                 if game.away_team and game.away_team_id not in used_team_ids:
+                    # Skip if team is eliminated from CFP
+                    if is_week_playoff(week) and game.away_team.name in cfp_eliminated_names:
+                        continue
+                    
                     away_spread = -game.home_team_spread
                     if away_spread > 0:  # Away team is underdog
                         if away_spread < smallest_underdog_points:
