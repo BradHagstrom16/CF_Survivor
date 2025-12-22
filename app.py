@@ -1064,11 +1064,12 @@ def process_week_results(week_id):
     week = Week.query.get(week_id)
     picks = Pick.query.filter_by(week_id=week_id).all()
 
-    # Track users who had 1 life at START of week (for revival rule)
-    users_with_one_life_before = []
-    for pick in picks:
-        if pick.user.lives_remaining == 1:
-            users_with_one_life_before.append(pick.user.id)
+    # Track active users who had 1 life at START of week (for revival rule)
+    active_users = User.query.filter_by(is_eliminated=False).all()
+    active_user_ids = {user.id for user in active_users}
+    users_with_one_life_before = [
+        user.id for user in active_users if user.lives_remaining == 1
+    ]
 
     for pick in picks:
         # Find the game with this team that has a recorded result
@@ -1099,7 +1100,7 @@ def process_week_results(week_id):
     db.session.commit()
     
     # *** REVIVAL RULE: Check if ALL users with 1 life lost ***
-    if users_with_one_life_before:
+    if users_with_one_life_before and len(users_with_one_life_before) == len(active_user_ids):
         # Get current status of those users
         users_to_check = User.query.filter(User.id.in_(users_with_one_life_before)).all()
         
