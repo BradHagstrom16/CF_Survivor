@@ -148,6 +148,36 @@ def index():
     
     eliminated_users = User.query.filter_by(is_eliminated=True).all()
     
+    # Check if we have a champion (only 1 active user remaining)
+    champion_picks = []
+    champion_correct = 0
+    weeks_played = 0
+    
+    if len(users) == 1 and len(eliminated_users) > 0:
+        # We have a champion! Get their pick history
+        champion = users[0]
+        champion_picks = Pick.query.filter_by(user_id=champion.id).join(Week).order_by(Week.week_number).all()
+        
+        # Calculate stats
+        champion_correct = sum(1 for pick in champion_picks if pick.is_correct == True)
+        completed_weeks = Week.query.filter_by(is_complete=True).all()
+        weeks_played = len(completed_weeks)
+        
+        # Add spread data to champion picks
+        for pick in champion_picks:
+            game = Game.query.filter_by(week_id=pick.week_id).filter(
+                db.or_(Game.home_team_id == pick.team_id, 
+                       Game.away_team_id == pick.team_id)
+            ).first()
+            
+            if game:
+                if pick.team_id == game.home_team_id:
+                    pick.spread = game.home_team_spread
+                else:
+                    pick.spread = -game.home_team_spread
+            else:
+                pick.spread = None
+    
     return render_template('index.html', 
                          current_week=current_week,
                          user_pick=user_pick,
@@ -157,7 +187,11 @@ def index():
                          week_picks=week_picks,
                          show_picks=show_picks,
                          format_deadline=format_deadline,
-                         timezone=POOL_TZ_NAME)
+                         timezone=POOL_TZ_NAME,
+                         # Championship page data
+                         champion_picks=champion_picks,
+                         champion_correct=champion_correct,
+                         weeks_played=weeks_played)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
