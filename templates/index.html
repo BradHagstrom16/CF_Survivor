@@ -1,6 +1,303 @@
 {% extends "base.html" %}
 
 {% block content %}
+
+<!-- CHAMPIONSHIP PAGE - Displayed when only 1 survivor remains -->
+{% if users|length == 1 and eliminated_users|length > 0 %}
+<style>
+    .championship-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 4rem 2rem;
+        border-radius: 20px;
+        text-align: center;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 3rem;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .championship-banner::before {
+        content: "🎊";
+        position: absolute;
+        font-size: 100px;
+        opacity: 0.1;
+        top: -20px;
+        left: 10%;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    .championship-banner::after {
+        content: "🏆";
+        position: absolute;
+        font-size: 100px;
+        opacity: 0.1;
+        bottom: -20px;
+        right: 10%;
+        animation: float 4s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-20px); }
+    }
+    
+    .trophy-icon {
+        font-size: 120px;
+        animation: bounce 2s ease-in-out infinite;
+        display: inline-block;
+    }
+    
+    @keyframes bounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+    
+    .champion-name {
+        font-size: 3.5rem;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        margin: 1rem 0;
+    }
+    
+    .season-complete {
+        font-size: 1.5rem;
+        opacity: 0.95;
+        margin-bottom: 2rem;
+    }
+    
+    .champion-stats-card {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        margin: 2rem 0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .stat-box {
+        text-align: center;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 10px;
+        margin: 0.5rem;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .prize-pool-badge {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 1.5rem 3rem;
+        border-radius: 50px;
+        font-size: 2rem;
+        font-weight: bold;
+        display: inline-block;
+        box-shadow: 0 10px 25px rgba(245, 87, 108, 0.4);
+        margin: 2rem 0;
+    }
+    
+    .journey-timeline {
+        background: #f8f9fa;
+        padding: 2rem;
+        border-radius: 15px;
+        margin: 2rem 0;
+    }
+    
+    .eliminated-section {
+        background: #fff3cd;
+        padding: 2rem;
+        border-radius: 15px;
+        border-left: 5px solid #ffc107;
+    }
+    
+    .confetti {
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        background: #f0f;
+        animation: confetti-fall 3s linear infinite;
+    }
+    
+    @keyframes confetti-fall {
+        to {
+            transform: translateY(100vh) rotate(360deg);
+            opacity: 0;
+        }
+    }
+    
+    .final-standings-badge {
+        background: #28a745;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+</style>
+
+<!-- Championship Banner -->
+<div class="championship-banner">
+    <div class="trophy-icon">🏆</div>
+    <div class="season-complete">🎉 2024-25 Season Complete! 🎉</div>
+    <div class="champion-name">{{ users[0].display_name }}</div>
+    <h2 style="margin: 1rem 0;">is your CFB Survivor Pool Champion!</h2>
+    
+    <div class="prize-pool-badge">
+        Winner Takes Home: $650 💰
+    </div>
+    
+    <p style="font-size: 1.2rem; margin-top: 2rem; opacity: 0.9;">
+        Outlasting {{ eliminated_users|length }} other competitors through weeks of intense college football action!
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Champion's Stats -->
+        <div class="champion-stats-card">
+            <h3 class="text-center mb-4">🌟 Champion's Final Stats 🌟</h3>
+            <div class="row">
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-box">
+                        <div class="stat-number">{{ users[0].lives_remaining }}</div>
+                        <div class="stat-label">Lives Remaining</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-box">
+                        <div class="stat-number">{{ champion_picks|length }}</div>
+                        <div class="stat-label">Total Picks</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-box">
+                        <div class="stat-number">{{ champion_correct }}</div>
+                        <div class="stat-label">Correct Picks</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-box">
+                        <div class="stat-number">{{ "%.1f"|format(users[0].cumulative_spread) }}</div>
+                        <div class="stat-label">Final Spread</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Champion's Journey -->
+        {% if champion_picks %}
+        <div class="journey-timeline">
+            <h3 class="mb-4">📜 Championship Journey</h3>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Week</th>
+                            <th>Team Picked</th>
+                            <th>Spread</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pick in champion_picks %}
+                        <tr class="{% if pick.is_correct == False %}table-danger{% elif pick.is_correct == True %}table-success{% endif %}">
+                            <td><strong>{{ get_week_display_name(pick.week) }}</strong></td>
+                            <td>{{ pick.team.name }}</td>
+                            <td>
+                                {% if pick.spread %}
+                                    {% if pick.spread < 0 %}
+                                        <span class="badge bg-success">{{ pick.spread }}</span>
+                                    {% elif pick.spread > 0 %}
+                                        <span class="badge bg-warning">+{{ pick.spread }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">PK</span>
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if pick.is_correct == True %}
+                                    <span class="badge bg-success">✓ Won</span>
+                                {% elif pick.is_correct == False %}
+                                    <span class="badge bg-danger">✗ Lost</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Hall of Competitors -->
+        <div class="eliminated-section">
+            <h3 class="mb-3">⚔️ Fallen Warriors - Hall of Competitors</h3>
+            <p class="text-muted mb-3">These brave souls fought valiantly but fell along the way:</p>
+            <div class="row">
+                {% for user in eliminated_users | sort(attribute='display_name') %}
+                <div class="col-md-3 col-sm-4 col-6 mb-2">
+                    <div class="badge bg-secondary w-100 p-2" style="font-size: 0.9rem;">
+                        {{ user.display_name }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Thank You Message -->
+        <div class="alert alert-info mt-4 text-center">
+            <h4>🙏 Thank You for Playing! 🙏</h4>
+            <p class="mb-0">
+                What an incredible season! Thanks to all {{ users|length + eliminated_users|length }} participants 
+                for making this survivor pool unforgettable. See you next season!
+            </p>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <h3>Season Summary</h3>
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">🏈 Final Statistics</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><strong>Total Participants:</strong> {{ users|length + eliminated_users|length }}</li>
+                    <li class="mb-2"><strong>Prize Pool:</strong> $650</li>
+                    <li class="mb-2"><strong>Weeks Played:</strong> {{ weeks_played }}</li>
+                    <li class="mb-2"><strong>Champion:</strong> <span class="final-standings-badge">{{ users[0].display_name }}</span></li>
+                </ul>
+                
+                <hr>
+                
+                <h6>Pool Rules Recap:</h6>
+                <ul class="small">
+                    <li>Pick one team each week to win</li>
+                    <li>Each team can only be picked ONCE all season</li>
+                    <li>If your team loses, you lose a life</li>
+                    <li>Each player gets 2 lives total</li>
+                    <li>Teams favored by 16.5+ points are not eligible</li>
+                    <li>Last survivor wins!</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- REGULAR STANDINGS PAGE (when pool is still active) -->
 <div class="row">
     <div class="col-md-8">
         {% if not current_user.is_authenticated %}
@@ -157,4 +454,5 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
