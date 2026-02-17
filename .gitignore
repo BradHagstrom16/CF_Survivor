@@ -1,0 +1,24 @@
+# Environment & secrets
+.env
+email_config.py
+
+# Database
+*.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Backups
+backups/
+
+# One-off data files
+*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environment
+venv/
