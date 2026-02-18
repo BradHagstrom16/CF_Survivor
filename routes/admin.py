@@ -15,6 +15,7 @@ from sqlalchemy import func
 
 from extensions import db
 from models import User, Team, Week, Game, Pick
+from constants import FBS_MASTER_TEAMS, TEAM_CONFERENCES
 from timezone_utils import get_current_time, format_deadline, make_aware, POOL_TZ_NAME
 from services.game_logic import process_week_results, process_autopicks
 
@@ -262,3 +263,143 @@ def update_payment(user_id):
     user.has_paid = has_paid
     db.session.commit()
     return jsonify({'success': True, 'has_paid': has_paid})
+
+
+@admin_bp.route('/manage-teams', methods=['GET', 'POST'])
+@admin_required
+def manage_teams():
+    """Add/remove teams from the Team table using the FBS master list."""
+    existing_teams = {t.name: t for t in Team.query.all()}
+
+    # Teams with picks can't be removed
+    teams_with_picks = set()
+    for team_name, team in existing_teams.items():
+        if Pick.query.filter_by(team_id=team.id).count() > 0:
+            teams_with_picks.add(team_name)
+
+    if request.method == 'POST':
+        selected_names = set(request.form.getlist('teams'))
+
+        # Always include locked teams
+        selected_names |= teams_with_picks
+
+        # Add new teams
+        added = 0
+        for short_name, api_name, api_id, conference, is_incoming in FBS_MASTER_TEAMS:
+            if short_name in selected_names and short_name not in existing_teams:
+                new_team = Team(name=short_name, conference=conference)
+                db.session.add(new_team)
+                added += 1
+
+        # Remove deselected teams (that aren't locked)
+        removed = 0
+        for team_name, team in existing_teams.items():
+            if team_name not in selected_names and team_name not in teams_with_picks:
+                db.session.delete(team)
+                removed += 1
+
+        db.session.commit()
+        flash(f'Teams updated: {added} added, {removed} removed.', 'success')
+        return redirect(url_for('admin.manage_teams'))
+
+    # GET: group teams by conference
+    teams_by_conference = {}
+    for short_name, api_name, api_id, conference, is_incoming in FBS_MASTER_TEAMS:
+        if conference not in teams_by_conference:
+            teams_by_conference[conference] = []
+        teams_by_conference[conference].append({
+            'name': short_name,
+            'selected': short_name in existing_teams,
+            'locked': short_name in teams_with_picks,
+            'is_incoming': is_incoming,
+        })
+
+    # Sort conferences and teams within each
+    sorted_conferences = sorted(teams_by_conference.keys())
+    for conf in sorted_conferences:
+        teams_by_conference[conf].sort(key=lambda t: t['name'])
+
+    total_master = len(FBS_MASTER_TEAMS)
+    total_selected = len(existing_teams)
+
+    return render_template(
+        'admin/manage_teams.html',
+        teams_by_conference=teams_by_conference,
+        sorted_conferences=sorted_conferences,
+        total_master=total_master,
+        total_selected=total_selected,
+        teams_with_picks=teams_with_picks,
+    )
+
+
+@admin_bp.route('/week/<int:week_id>/fetch-scores')
+@admin_required
+def fetch_scores(week_id):
+    """Fetch scores from API and show review page."""
+    from services.score_fetcher import ScoreFetcher
+    fetcher = ScoreFetcher()
+    results = fetcher.fetch_scores_for_week(week_id)
+
+    week = Week.query.get_or_404(week_id)
+
+    if results.get('error'):
+        flash(results['error'], 'error')
+        return redirect(url_for('admin.dashboard'))
+
+    return render_template(
+        'admin/review_scores.html',
+        week=week,
+        results=results,
+    )
+
+
+@admin_bp.route('/week/<int:week_id>/confirm-scores', methods=['POST'])
+@admin_required
+def confirm_scores(week_id):
+    """Apply admin-reviewed scores and process results if all games decided."""
+    week = Week.query.get_or_404(week_id)
+    games = Game.query.filter_by(week_id=week_id).all()
+
+    updated = 0
+    for game in games:
+        home_score_key = f'home_score_{game.id}'
+        away_score_key = f'away_score_{game.id}'
+        winner_key = f'winner_{game.id}'
+
+        home_score = request.form.get(home_score_key)
+        away_score = request.form.get(away_score_key)
+        winner = request.form.get(winner_key)
+
+        if home_score is not None and home_score != '':
+            try:
+                game.home_score = int(home_score)
+            except ValueError:
+                pass
+
+        if away_score is not None and away_score != '':
+            try:
+                game.away_score = int(away_score)
+            except ValueError:
+                pass
+
+        if winner == 'home':
+            game.home_team_won = True
+            updated += 1
+        elif winner == 'away':
+            game.home_team_won = False
+            updated += 1
+
+    db.session.commit()
+
+    # Check if all games are decided
+    all_decided = all(g.home_team_won is not None for g in games)
+    if all_decided:
+        week.is_complete = True
+        db.session.commit()
+        process_week_results(week_id)
+        flash(f'All {updated} game scores confirmed and results processed!', 'success')
+    else:
+        pending = sum(1 for g in games if g.home_team_won is None)
+        flash(f'{updated} game scores confirmed. {pending} games still pending.', 'warning')
+
+    return redirect(url_for('admin.dashboard'))

@@ -20,6 +20,7 @@ from app import create_app
 from extensions import db
 from db_maintenance import ensure_team_national_title_odds_column
 from models import Team, Week, Game
+from constants import TEAM_NAME_MAP, API_BASE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class NCAAFootballAPIImporter:
     def __init__(self):
         with app.app_context():
             self.api_key = app.config.get('ODDS_API_KEY', '')
-        self.base_url = "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf/odds"
+        self.base_url = f"{API_BASE_URL}/odds"
         self.championship_url = (
             "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf_championship_winner/odds"
         )
@@ -40,59 +41,11 @@ class NCAAFootballAPIImporter:
         self.utc_tz = pytz.UTC
         self.chicago_tz = pytz.timezone('America/Chicago')
 
-        self.team_name_map = {
-            'Texas Longhorns': 'Texas',
-            'Penn State Nittany Lions': 'Penn State',
-            'Ohio State Buckeyes': 'Ohio State',
-            'Clemson Tigers': 'Clemson',
-            'Georgia Bulldogs': 'Georgia',
-            'Notre Dame Fighting Irish': 'Notre Dame',
-            'Oregon Ducks': 'Oregon',
-            'Alabama Crimson Tide': 'Alabama',
-            'LSU Tigers': 'LSU',
-            'Miami Hurricanes': 'Miami',
-            'Arizona State Sun Devils': 'Arizona State',
-            'Illinois Fighting Illini': 'Illinois',
-            'South Carolina Gamecocks': 'South Carolina',
-            'Michigan Wolverines': 'Michigan',
-            'Florida Gators': 'Florida',
-            'SMU Mustangs': 'SMU',
-            'Kansas State Wildcats': 'Kansas State',
-            'Oklahoma Sooners': 'Oklahoma',
-            'Texas A&M Aggies': 'Texas A&M',
-            'Indiana Hoosiers': 'Indiana',
-            'Ole Miss Rebels': 'Ole Miss',
-            'Iowa State Cyclones': 'Iowa State',
-            'Texas Tech Red Raiders': 'Texas Tech',
-            'Tennessee Volunteers': 'Tennessee',
-            'Boise State Broncos': 'Boise State',
-            'BYU Cougars': 'BYU',
-            'Utah Utes': 'Utah',
-            'Baylor Bears': 'Baylor',
-            'Louisville Cardinals': 'Louisville',
-            'USC Trojans': 'USC',
-            'Georgia Tech Yellow Jackets': 'Georgia Tech',
-            'Missouri Tigers': 'Missouri',
-            'Tulane Green Wave': 'Tulane',
-            'Nebraska Cornhuskers': 'Nebraska',
-            'UNLV Rebels': 'UNLV',
-            'Toledo Rockets': 'Toledo',
-            'Auburn Tigers': 'Auburn',
-            'James Madison Dukes': 'James Madison',
-            'Memphis Tigers': 'Memphis',
-            'Florida State Seminoles': 'Florida State',
-            'Duke Blue Devils': 'Duke',
-            'Liberty Flames': 'Liberty',
-            'Navy Midshipmen': 'Navy',
-            'Iowa Hawkeyes': 'Iowa',
-            'TCU Horned Frogs': 'TCU',
-            'Pittsburgh Panthers': 'Pittsburgh',
-            'Army Black Knights': 'Army',
-            'Colorado Buffaloes': 'Colorado',
-            'Louisiana Ragin Cajuns': 'Louisiana-Lafayette',
-        }
+        self.team_name_map = TEAM_NAME_MAP
 
-        self.tracked_teams = set(self.team_name_map.values())
+        # Build tracked teams dynamically from the Team table
+        with app.app_context():
+            self.tracked_teams = {t.name for t in Team.query.all()}
 
     def fetch_games_for_date_range(self, start_date, end_date):
         start_utc = self.chicago_tz.localize(start_date).astimezone(self.utc_tz)
@@ -331,6 +284,7 @@ class NCAAFootballAPIImporter:
                     away_team_name=None if at else api_away,
                     home_team_spread=hs,
                     game_time=gt_chi,
+                    api_event_id=gd.get('id'),
                 )
                 db.session.add(game)
                 imported += 1

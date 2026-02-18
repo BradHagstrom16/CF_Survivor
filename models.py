@@ -12,59 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import db
 from timezone_utils import deadline_has_passed
-
-# Conference affiliations for all teams (2024-2025 season)
-TEAM_CONFERENCES = {
-    'Texas': 'SEC',
-    'Penn State': 'Big Ten',
-    'Ohio State': 'Big Ten',
-    'Clemson': 'ACC',
-    'Georgia': 'SEC',
-    'Notre Dame': 'Independent',
-    'Oregon': 'Big Ten',
-    'Alabama': 'SEC',
-    'LSU': 'SEC',
-    'Miami': 'ACC',
-    'Arizona State': 'Big 12',
-    'Illinois': 'Big Ten',
-    'South Carolina': 'SEC',
-    'Michigan': 'Big Ten',
-    'Florida': 'SEC',
-    'SMU': 'ACC',
-    'Kansas State': 'Big 12',
-    'Oklahoma': 'SEC',
-    'Texas A&M': 'SEC',
-    'Indiana': 'Big Ten',
-    'Ole Miss': 'SEC',
-    'Iowa State': 'Big 12',
-    'Texas Tech': 'Big 12',
-    'Tennessee': 'SEC',
-    'Boise State': 'Mountain West',
-    'BYU': 'Big 12',
-    'Utah': 'Big 12',
-    'Baylor': 'Big 12',
-    'Louisville': 'ACC',
-    'USC': 'Big Ten',
-    'Georgia Tech': 'ACC',
-    'Missouri': 'SEC',
-    'Tulane': 'American',
-    'Nebraska': 'Big Ten',
-    'UNLV': 'Mountain West',
-    'Toledo': 'MAC',
-    'Auburn': 'SEC',
-    'James Madison': 'Sun Belt',
-    'Memphis': 'American',
-    'Florida State': 'ACC',
-    'Duke': 'ACC',
-    'Liberty': 'Conference USA',
-    'Navy': 'American',
-    'Iowa': 'Big Ten',
-    'TCU': 'Big 12',
-    'Pittsburgh': 'ACC',
-    'Army': 'American',
-    'Colorado': 'Big 12',
-    'Louisiana-Lafayette': 'Sun Belt',
-}
+from constants import TEAM_CONFERENCES
 
 
 class User(UserMixin, db.Model):
@@ -176,6 +124,10 @@ class Game(db.Model):
     home_team_spread = db.Column(db.Float)
     game_time = db.Column(db.DateTime)
     home_team_won = db.Column(db.Boolean, default=None)
+    api_event_id = db.Column(db.String(64), nullable=True, index=True)
+    home_score = db.Column(db.Integer, nullable=True)
+    away_score = db.Column(db.Integer, nullable=True)
+    spread_locked_at = db.Column(db.DateTime, nullable=True)
 
     week = db.relationship('Week', backref='games')
     home_team = db.relationship('Team', foreign_keys=[home_team_id], backref='home_games')

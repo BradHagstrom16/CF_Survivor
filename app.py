@@ -7,6 +7,7 @@ Creates and configures the Flask application.
 import logging
 import os
 
+import click
 from flask import Flask, render_template
 
 from config import config
@@ -15,6 +16,7 @@ from db_maintenance import (
     ensure_team_national_title_odds_column,
     ensure_user_is_admin_column,
     ensure_user_display_name_column,
+    ensure_game_automation_columns,
 )
 
 
@@ -49,6 +51,7 @@ def create_app(config_name=None):
     ensure_team_national_title_odds_column(app, db, reporter=app.logger.info)
     ensure_user_is_admin_column(app, db, reporter=app.logger.info)
     ensure_user_display_name_column(app, db, reporter=app.logger.info)
+    ensure_game_automation_columns(app, db, reporter=app.logger.info)
 
     # ── Blueprints ───────────────────────────────────────────────────────
     from routes.auth import auth_bp
@@ -90,6 +93,37 @@ def create_app(config_name=None):
         """Create all database tables."""
         db.create_all()
         app.logger.info('Database tables created.')
+
+    @app.cli.command('cfb-sync')
+    @click.option('--mode', required=True,
+                  type=click.Choice(['setup', 'spreads', 'scores', 'autopick', 'remind', 'status']),
+                  help='Sync mode to run.')
+    def cfb_sync_command(mode):
+        """Unified CFB automation CLI — run weekly tasks by mode."""
+        from services.automation import run_setup, run_spread_update, run_scores, run_status
+        from services.game_logic import check_and_process_autopicks
+
+        if mode == 'setup':
+            result = run_setup()
+        elif mode == 'spreads':
+            result = run_spread_update()
+        elif mode == 'scores':
+            result = run_scores()
+        elif mode == 'autopick':
+            results = check_and_process_autopicks()
+            result = {
+                'status': 'processed',
+                'details': '\n'.join(results) if results else 'No auto-picks needed',
+            }
+        elif mode == 'remind':
+            from send_reminders import main as send_reminders_main
+            send_reminders_main()
+            result = {'status': 'ok', 'details': 'Reminder check complete'}
+        elif mode == 'status':
+            result = run_status()
+
+        click.echo(f"\n[cfb-sync --mode {mode}]")
+        click.echo(result.get('details', str(result)))
 
     return app
 

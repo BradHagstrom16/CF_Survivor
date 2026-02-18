@@ -85,6 +85,7 @@
                         <th>Player</th>
                         <th>Team Picked</th>
                         <th>Opponent</th>
+                        <th>Score</th>
                         <th>Result</th>
                         <th>Lives After</th>
                         <th>Status</th>
@@ -112,6 +113,22 @@
                                 {% endif %}
                             {% else %}
                                 <span class="text-muted">Unknown</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pick.team_id in game_results %}
+                                {% set game = game_results[pick.team_id] %}
+                                {% if game.home_score is not none and game.away_score is not none %}
+                                    {% if game.was_home %}
+                                        {{ game.home_score }} &ndash; {{ game.away_score }}
+                                    {% else %}
+                                        {{ game.away_score }} &ndash; {{ game.home_score }}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">&mdash;</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">&mdash;</span>
                             {% endif %}
                         </td>
                         <td>

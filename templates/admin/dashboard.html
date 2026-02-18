@@ -60,6 +60,8 @@
                                     {% endif %}
 
                                     {% if week.is_active and not week.is_complete %}
+                                        <a href="{{ url_for('admin.fetch_scores', week_id=week.id) }}"
+                                           class="btn btn-info btn-sm">Fetch Scores</a>
                                         <a href="{{ url_for('admin.mark_results', week_id=week.id) }}"
                                            class="btn btn-warning">Results</a>
                                     {% endif %}
@@ -119,6 +121,9 @@
                 <div class="d-grid gap-2">
                     <a href="{{ url_for('admin.create_week') }}" class="btn btn-primary">
                         📅 Create New Week
+                    </a>
+                    <a href="{{ url_for('admin.manage_teams') }}" class="btn btn-outline-primary">
+                        🏈 Manage Teams
                     </a>
                     <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
                         👥 View Public Standings

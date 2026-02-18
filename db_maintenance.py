@@ -75,3 +75,11 @@ def ensure_user_display_name_column(app, db, *, reporter=None):
                 report(f"Failed to seed display_name: {exc}")
 
     return added
+
+
+def ensure_game_automation_columns(app, db, *, reporter=None):
+    """Ensure the Game table has columns for automation (scores, event ID, spread lock)."""
+    _ensure_column(app, db, "game", "api_event_id", "VARCHAR(64)", reporter=reporter)
+    _ensure_column(app, db, "game", "home_score", "INTEGER", reporter=reporter)
+    _ensure_column(app, db, "game", "away_score", "INTEGER", reporter=reporter)
+    _ensure_column(app, db, "game", "spread_locked_at", "DATETIME", reporter=reporter)

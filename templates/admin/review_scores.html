@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Review Scores - Week {{ week.week_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>Review Scores - Week {{ week.week_number }}</h2>
+
+    {% if results.api_credits_remaining %}
+    <div class="alert alert-info">
+        API credits remaining: <strong>{{ results.api_credits_remaining }}</strong>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('admin.confirm_scores', week_id=week.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <!-- Completed Games -->
+        {% if results.matched_completed %}
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5>Completed Games ({{ results.matched_completed|length }})</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Match</th>
+                            <th>Confidence</th>
+                            <th>Away Score</th>
+                            <th>Home Score</th>
+                            <th>Winner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in results.matched_completed %}
+                        <tr>
+                            <td><strong>{{ match.away_team }}</strong> @ <strong>{{ match.home_team }}</strong></td>
+                            <td>
+                                {% if match.match_method == 'event_id' %}
+                                    <span class="badge bg-success">Event ID</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Team Name</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm" style="width: 80px"
+                                       name="away_score_{{ match.game_id }}"
+                                       value="{{ match.away_score if match.away_score is not none else '' }}">
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm" style="width: 80px"
+                                       name="home_score_{{ match.game_id }}"
+                                       value="{{ match.home_score if match.home_score is not none else '' }}">
+                            </td>
+                            <td>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio"
+                                           name="winner_{{ match.game_id }}" value="home"
+                                           {% if match.home_score is not none and match.away_score is not none and match.home_score > match.away_score %}checked{% endif %}>
+                                    <label class="form-check-label">Home</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio"
+                                           name="winner_{{ match.game_id }}" value="away"
+                                           {% if match.home_score is not none and match.away_score is not none and match.away_score > match.home_score %}checked{% endif %}>
+                                    <label class="form-check-label">Away</label>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- In-Progress Games -->
+        {% if results.matched_in_progress %}
+        <div class="card mb-3">
+            <div class="card-header bg-warning text-dark">
+                <h5>In Progress ({{ results.matched_in_progress|length }})</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Match</th>
+                            <th>Confidence</th>
+                            <th>Current Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in results.matched_in_progress %}
+                        <tr>
+                            <td><strong>{{ match.away_team }}</strong> @ <strong>{{ match.home_team }}</strong></td>
+                            <td>
+                                {% if match.match_method == 'event_id' %}
+                                    <span class="badge bg-success">Event ID</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Team Name</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ match.away_score if match.away_score is not none else '?' }}
+                                &ndash;
+                                {{ match.home_score if match.home_score is not none else '?' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="text-muted">In-progress games cannot be confirmed yet. Re-fetch later.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Unmatched Games -->
+        {% if results.unmatched %}
+        <div class="card mb-3">
+            <div class="card-header bg-danger text-white">
+                <h5>Unmatched ({{ results.unmatched|length }})</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>API Match</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in results.unmatched %}
+                        <tr>
+                            <td>{{ match.away_team }} @ {{ match.home_team }}</td>
+                            <td>
+                                {{ match.away_score if match.away_score is not none else '?' }}
+                                &ndash;
+                                {{ match.home_score if match.home_score is not none else '?' }}
+                            </td>
+                            <td>
+                                {% if match.completed %}
+                                    <span class="badge bg-success">Final</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">In Progress</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="text-muted">These games matched a tracked team but couldn't be linked to a game record. Use manual results to resolve.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if not results.matched_completed and not results.matched_in_progress and not results.unmatched %}
+        <div class="alert alert-warning">
+            No score data returned from the API for this week's games. Games may not have started yet, or the API window may have expired.
+        </div>
+        {% endif %}
+
+        <div class="mt-3 mb-4">
+            {% if results.matched_completed %}
+            <button type="submit" class="btn btn-success btn-lg">Confirm Scores & Process Results</button>
+            {% endif %}
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary btn-lg ms-2">Back to Dashboard</a>
+            <a href="{{ url_for('admin.mark_results', week_id=week.id) }}" class="btn btn-warning btn-lg ms-2">Manual Results</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

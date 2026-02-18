@@ -9,7 +9,8 @@ from flask_login import login_required, current_user
 from sqlalchemy import func
 
 from extensions import db
-from models import User, Team, Week, Game, Pick, TEAM_CONFERENCES
+from models import User, Team, Week, Game, Pick
+from constants import TEAM_CONFERENCES
 from timezone_utils import (
     get_current_time, get_utc_time, make_aware, deadline_has_passed,
     format_deadline, to_pool_time, safe_is_after, POOL_TZ_NAME,
@@ -471,6 +472,8 @@ def weekly_results(week_number=None):
                 'won': game.home_team_won if game.home_team_won is not None else None,
                 'was_home': True,
                 'spread': game.home_team_spread,
+                'home_score': game.home_score,
+                'away_score': game.away_score,
             }
         if game.away_team:
             game_results[game.away_team_id] = {
@@ -478,6 +481,8 @@ def weekly_results(week_number=None):
                 'won': not game.home_team_won if game.home_team_won is not None else None,
                 'was_home': False,
                 'spread': -game.home_team_spread,
+                'home_score': game.home_score,
+                'away_score': game.away_score,
             }
 
     all_users = User.query.order_by(func.lower(User.username)).all()
