@@ -79,6 +79,7 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     has_paid = db.Column(db.Boolean, default=False)
     cumulative_spread = db.Column(db.Float, default=0.0)
+    _display_name = db.Column('display_name', db.String(80), nullable=True)
 
     picks = db.relationship('Pick', backref='user', lazy=True)
 
@@ -126,9 +127,7 @@ class User(UserMixin, db.Model):
 
     @property
     def display_name(self):
-        if self.username == 'admin':
-            return 'B1G_Brad'
-        return self.username
+        return self._display_name or self.username
 
     def __repr__(self):
         return f'<User {self.username}>'

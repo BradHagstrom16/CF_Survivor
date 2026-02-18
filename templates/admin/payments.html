@@ -46,7 +46,7 @@
                     <tr class="{% if not user.has_paid %}table-warning{% endif %}">
                         <td>
                             <strong>{{ user.display_name }}</strong>
-                            {% if user.username in ['admin', 'commissioner', 'B1G_Brad'] %}
+                            {% if user.is_admin %}
                                 <span class="badge bg-primary">Admin</span>
                             {% endif %}
                         </td>

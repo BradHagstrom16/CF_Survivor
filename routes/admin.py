@@ -4,13 +4,12 @@ CF Survivor Pool - Admin Routes
 All admin-only routes: dashboard, week management, game management, results, users, payments.
 """
 
-import json
 import logging
 from datetime import datetime
 from functools import wraps
 
 import pytz
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func
 
@@ -99,7 +98,7 @@ def create_week():
     return render_template('admin/create_week.html', timezone='America/Chicago')
 
 
-@admin_bp.route('/week/<int:week_id>/activate')
+@admin_bp.route('/week/<int:week_id>/activate', methods=['POST'])
 @admin_required
 def activate_week(week_id):
     Week.query.update({'is_active': False})
@@ -121,6 +120,10 @@ def manage_games(week_id):
         home_spread = float(request.form.get('home_spread'))
         game_time = datetime.strptime(request.form.get('game_time'), '%Y-%m-%dT%H:%M')
 
+        if home_team_id == away_team_id:
+            flash('Home team and away team cannot be the same.', 'error')
+            return redirect(url_for('admin.manage_games', week_id=week_id))
+
         game = Game(
             week_id=week_id,
             home_team_id=home_team_id,
@@ -140,7 +143,7 @@ def manage_games(week_id):
     return render_template('admin/manage_games.html', week=week, teams=teams, games=games)
 
 
-@admin_bp.route('/game/<int:game_id>/delete')
+@admin_bp.route('/game/<int:game_id>/delete', methods=['POST'])
 @admin_required
 def delete_game(game_id):
     game = Game.query.get_or_404(game_id)
@@ -158,10 +161,19 @@ def mark_results(week_id):
     games = Game.query.filter_by(week_id=week_id).all()
 
     if request.method == 'POST':
+        missing = []
         for game in games:
             result = request.form.get(f'game_{game.id}')
-            if result:
+            if not result:
+                home = game.get_home_team_display()
+                away = game.get_away_team_display()
+                missing.append(f'{away} @ {home}')
+            else:
                 game.home_team_won = (result == 'home')
+
+        if missing:
+            flash(f'Missing results for: {", ".join(missing)}', 'error')
+            return render_template('admin/mark_results.html', week=week, games=games)
 
         week.is_complete = True
         db.session.commit()
@@ -249,4 +261,4 @@ def update_payment(user_id):
     has_paid = data.get('has_paid', False)
     user.has_paid = has_paid
     db.session.commit()
-    return json.dumps({'success': True, 'has_paid': has_paid})
+    return jsonify({'success': True, 'has_paid': has_paid})

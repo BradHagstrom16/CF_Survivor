@@ -17,45 +17,11 @@
             <div class="card-header bg-dark text-white">
                 <h4>Season Weeks</h4>
             </div>
-            <!-- Add this card after the Season Weeks card -->
-<!-- Auto-Pick Management Card -->
-<div class="card mt-3">
-    <div class="card-header bg-warning text-dark">
-        <h4>🤖 Auto-Pick Management</h4>
-    </div>
-    <div class="card-body">
-        <p>Auto-picks are run through the scheduled maintenance task or on-demand when needed.</p>
-        <p>You can trigger auto-picks for any week past its deadline using the controls below</p>
-        
-        <div class="list-group">
-            {% for week in weeks %}
-                {% if week.deadline < current_time %}  <!-- Changed from 'moment' to 'current_time' -->
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>Week {{ week.week_number }}</strong>
-                            <small class="text-muted">
-                                Deadline: {{ format_deadline(week.deadline) }}
-                            </small>
-                        </div>
-                        {% if not week.is_complete %}
-                            <a href="{{ url_for('admin.admin_process_autopicks', week_id=week.id) }}" 
-                               class="btn btn-sm btn-warning">
-                                Process Auto-picks
-                            </a>
-                        {% else %}
-                            <span class="badge bg-secondary">Complete</span>
-                        {% endif %}
-                    </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-    </div>
-</div>
             <div class="card-body">
                 <a href="{{ url_for('admin.create_week') }}" class="btn btn-success mb-3">
                     ➕ Create New Week
                 </a>
-                
+
                 <table class="table table-striped">
                     <thead>
                         <tr>
@@ -83,16 +49,18 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('admin.manage_games', week_id=week.id) }}" 
+                                    <a href="{{ url_for('admin.manage_games', week_id=week.id) }}"
                                        class="btn btn-primary">Games</a>
-                                    
+
                                     {% if not week.is_active %}
-                                        <a href="{{ url_for('admin.activate_week', week_id=week.id) }}" 
-                                           class="btn btn-success">Activate</a>
+                                        <form method="POST" action="{{ url_for('admin.activate_week', week_id=week.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="btn btn-success btn-sm">Activate</button>
+                                        </form>
                                     {% endif %}
-                                    
+
                                     {% if week.is_active and not week.is_complete %}
-                                        <a href="{{ url_for('admin.mark_results', week_id=week.id) }}" 
+                                        <a href="{{ url_for('admin.mark_results', week_id=week.id) }}"
                                            class="btn btn-warning">Results</a>
                                     {% endif %}
                                 </div>
@@ -105,6 +73,39 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Auto-Pick Management Card -->
+        <div class="card mt-3">
+            <div class="card-header bg-warning text-dark">
+                <h4>Auto-Pick Management</h4>
+            </div>
+            <div class="card-body">
+                <p>Trigger auto-picks for any week past its deadline.</p>
+
+                <div class="list-group">
+                    {% for week in weeks %}
+                        {% if week.deadline < current_time %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>Week {{ week.week_number }}</strong>
+                                    <small class="text-muted">
+                                        Deadline: {{ format_deadline(week.deadline) }}
+                                    </small>
+                                </div>
+                                {% if not week.is_complete %}
+                                    <a href="{{ url_for('admin.admin_process_autopicks', week_id=week.id) }}"
+                                       class="btn btn-sm btn-warning">
+                                        Process Auto-picks
+                                    </a>
+                                {% else %}
+                                    <span class="badge bg-secondary">Complete</span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>

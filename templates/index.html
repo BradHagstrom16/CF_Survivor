@@ -12,7 +12,7 @@
     <h2 style="margin: 1rem 0;">is your CFB Survivor Pool Champion!</h2>
     
     <div class="prize-pool-badge">
-        Winner Takes Home: $650 💰
+        Winner Takes Home: ${{ prize_pool }} 💰
     </div>
     
     <p style="font-size: 1.2rem; margin-top: 2rem; opacity: 0.9;">
@@ -134,7 +134,7 @@
                 <h5 class="card-title">🏈 Final Statistics</h5>
                 <ul class="list-unstyled">
                     <li class="mb-2"><strong>Total Participants:</strong> {{ users|length + eliminated_users|length }}</li>
-                    <li class="mb-2"><strong>Prize Pool:</strong> $650</li>
+                    <li class="mb-2"><strong>Prize Pool:</strong> ${{ prize_pool }}</li>
                     <li class="mb-2"><strong>Weeks Played:</strong> {{ weeks_played }}</li>
                     <li class="mb-2"><strong>Champion:</strong> <span class="final-standings-badge">{{ users[0].display_name }}</span></li>
                 </ul>
@@ -307,7 +307,7 @@
                     <li>Each player gets 2 lives total</li>
                     <li>Teams favored by 16.5+ points are not eligible</li>
                     <li>Last survivor wins!</li>
-                    <li>💲26 entries x $25 = $650 pot 💰💸</li>
+                    <li>{{ total_participants }} entries x ${{ entry_fee }} = ${{ prize_pool }} pot</li>
                 </ul>
             </div>
         </div>

@@ -11,7 +11,11 @@ from flask import Flask, render_template
 
 from config import config
 from extensions import db, login_manager, csrf, limiter
-from db_maintenance import ensure_team_national_title_odds_column, ensure_user_is_admin_column
+from db_maintenance import (
+    ensure_team_national_title_odds_column,
+    ensure_user_is_admin_column,
+    ensure_user_display_name_column,
+)
 
 
 def create_app(config_name=None):
@@ -44,6 +48,7 @@ def create_app(config_name=None):
     # ── Schema migrations ────────────────────────────────────────────────
     ensure_team_national_title_odds_column(app, db, reporter=app.logger.info)
     ensure_user_is_admin_column(app, db, reporter=app.logger.info)
+    ensure_user_display_name_column(app, db, reporter=app.logger.info)
 
     # ── Blueprints ───────────────────────────────────────────────────────
     from routes.auth import auth_bp
@@ -65,6 +70,7 @@ def create_app(config_name=None):
             'to_pool_time': to_pool_time,
             'get_current_time': get_current_time,
             'timezone': POOL_TZ_NAME,
+            'entry_fee': app.config.get('ENTRY_FEE', 25),
         }
         helpers.update(get_display_helpers())
         return helpers

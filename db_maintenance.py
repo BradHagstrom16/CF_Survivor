@@ -56,3 +56,22 @@ def ensure_user_is_admin_column(app, db, *, reporter=None):
                 report(f"Failed to set admin flags: {exc}")
 
     return added
+
+
+def ensure_user_display_name_column(app, db, *, reporter=None):
+    """Ensure the User table has a display_name column and seed admin display name."""
+    report = reporter or logger.info
+    added = _ensure_column(app, db, "user", "display_name", "VARCHAR(80)", reporter=reporter)
+
+    if added:
+        with app.app_context():
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text(
+                        "UPDATE user SET display_name = 'B1G_Brad' WHERE username = 'admin' AND display_name IS NULL"
+                    ))
+                report("Seeded display_name for admin account.")
+            except Exception as exc:
+                report(f"Failed to seed display_name: {exc}")
+
+    return added

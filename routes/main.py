@@ -4,9 +4,6 @@ CF Survivor Pool - Main Routes
 Public/user routes: standings, picks, results.
 """
 
-import pytz
-from datetime import datetime
-
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from sqlalchemy import func
@@ -14,7 +11,7 @@ from sqlalchemy import func
 from extensions import db
 from models import User, Team, Week, Game, Pick, TEAM_CONFERENCES
 from timezone_utils import (
-    get_current_time, make_aware, deadline_has_passed,
+    get_current_time, get_utc_time, make_aware, deadline_has_passed,
     format_deadline, to_pool_time, safe_is_after, POOL_TZ_NAME,
 )
 from display_utils import (
@@ -29,6 +26,7 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
 def index():
+    from flask import current_app
     current_week = Week.query.filter_by(is_active=True).first()
 
     user_pick = None
@@ -113,6 +111,10 @@ def index():
             else:
                 pick.spread = None
 
+    total_participants = User.query.count()
+    entry_fee = current_app.config.get('ENTRY_FEE', 25)
+    prize_pool = total_participants * entry_fee
+
     return render_template(
         'index.html',
         current_week=current_week,
@@ -127,14 +129,15 @@ def index():
         champion_picks=champion_picks,
         champion_correct=champion_correct,
         weeks_played=weeks_played,
+        total_participants=total_participants,
+        prize_pool=prize_pool,
     )
 
 
 @main_bp.route('/pick/<int:week_number>', methods=['GET', 'POST'])
 @login_required
 def make_pick(week_number):
-    chicago_tz = pytz.timezone('America/Chicago')
-    current_time = datetime.now(chicago_tz)
+    current_time = get_current_time()
 
     if current_user.is_eliminated:
         flash('Sorry, you have been eliminated from the pool.', 'error')
@@ -142,11 +145,7 @@ def make_pick(week_number):
 
     week = Week.query.filter_by(week_number=week_number).first_or_404()
 
-    deadline = week.deadline
-    if deadline.tzinfo is None:
-        deadline = chicago_tz.localize(deadline)
-
-    if current_time > deadline:
+    if deadline_has_passed(week.deadline):
         flash('The deadline for this week has passed.', 'error')
         return redirect(url_for('main.index'))
 
@@ -164,10 +163,7 @@ def make_pick(week_number):
         ).first()
 
         if existing_game and existing_game.game_time:
-            game_time = existing_game.game_time
-            if game_time.tzinfo is None:
-                game_time = chicago_tz.localize(game_time)
-            if current_time > game_time:
+            if safe_is_after(current_time, existing_game.game_time):
                 pick_locked = True
 
     cfp_eliminated_names = set()
@@ -185,10 +181,7 @@ def make_pick(week_number):
             ).first()
 
             if new_team_game and new_team_game.game_time:
-                game_time = new_team_game.game_time
-                if game_time.tzinfo is None:
-                    game_time = chicago_tz.localize(game_time)
-                if current_time > game_time:
+                if safe_is_after(current_time, new_team_game.game_time):
                     flash('Cannot pick this team - their game has already started.', 'error')
                     return redirect(url_for('main.make_pick', week_number=week_number))
 
@@ -205,16 +198,17 @@ def make_pick(week_number):
                 flash(f'You have already used this team in {phase_name}.', 'error')
                 return redirect(url_for('main.make_pick', week_number=week_number))
 
+            utc_now = get_utc_time()
             if existing_pick:
                 existing_pick.team_id = team_id
-                existing_pick.created_at = current_time
+                existing_pick.created_at = utc_now
                 flash('Pick updated successfully!', 'success')
             else:
                 new_pick = Pick(
                     user_id=current_user.id,
                     week_id=week.id,
                     team_id=team_id,
-                    created_at=current_time,
+                    created_at=utc_now,
                 )
                 db.session.add(new_pick)
                 flash('Pick submitted successfully!', 'success')
@@ -227,8 +221,7 @@ def make_pick(week_number):
     # GET: build eligible teams
     games = Game.query.filter_by(week_id=week.id).all()
     for game in games:
-        if game.game_time and game.game_time.tzinfo is None:
-            game.game_time = chicago_tz.localize(game.game_time)
+        game.game_time = make_aware(game.game_time)
 
     used_team_ids = get_used_team_ids(current_user.id, week)
 
@@ -240,13 +233,7 @@ def make_pick(week_number):
             if is_week_playoff(week) and game.home_team.name in cfp_eliminated_names:
                 continue
             if game.home_team_spread >= -16:
-                can_pick = True
-                if game.game_time:
-                    gt = game.game_time
-                    if gt.tzinfo is None:
-                        gt = chicago_tz.localize(gt)
-                    if current_time > gt:
-                        can_pick = False
+                can_pick = not safe_is_after(current_time, game.game_time)
                 if can_pick:
                     eligible_teams.append(game.home_team)
                     teams_added.add(game.home_team.id)
@@ -256,13 +243,7 @@ def make_pick(week_number):
                 continue
             away_spread = -game.home_team_spread
             if away_spread >= -16:
-                can_pick = True
-                if game.game_time:
-                    gt = game.game_time
-                    if gt.tzinfo is None:
-                        gt = chicago_tz.localize(gt)
-                    if current_time > gt:
-                        can_pick = False
+                can_pick = not safe_is_after(current_time, game.game_time)
                 if can_pick:
                     eligible_teams.append(game.away_team)
                     teams_added.add(game.away_team.id)

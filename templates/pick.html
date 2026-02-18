@@ -87,7 +87,7 @@
                         {{ game.get_away_team_display() }} @ {{ game.get_home_team_display() }}
                     </h6>
                     <p class="card-text small">
-                        {{ game.game_time.strftime('%m/%d %I:%M %p') }}
+                        {% if game.game_time %}{{ game.game_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
                         <span class="badge bg-dark ms-1">LOCKED - GAME STARTED</span>
                         <br>
                         Spread: 
@@ -122,7 +122,7 @@
                                     {{ away_display }} @ {{ home_display }}
                                 </h6>
                                 <p class="card-text small">
-                                    {{ game.game_time.strftime('%m/%d %I:%M %p') }}
+                                    {% if game.game_time %}{{ game.game_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
                                     {% if game.game_time and game.game_time < current_time %}
                                     <span class="badge bg-dark ms-1">LOCKED</span>
                                      {% endif %}
