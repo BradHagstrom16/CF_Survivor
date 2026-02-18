@@ -17,6 +17,7 @@
 
 
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="mb-3">
                         <label for="week_number" class="form-label">Week Number</label>
                         <input type="number" class="form-control" id="week_number" 
@@ -71,7 +72,7 @@
                     </div>
                     
                     <button type="submit" class="btn btn-success">Create Week</button>
-                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>

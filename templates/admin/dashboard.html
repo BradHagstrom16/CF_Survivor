@@ -38,7 +38,7 @@
                             </small>
                         </div>
                         {% if not week.is_complete %}
-                            <a href="{{ url_for('admin_process_autopicks', week_id=week.id) }}" 
+                            <a href="{{ url_for('admin.admin_process_autopicks', week_id=week.id) }}" 
                                class="btn btn-sm btn-warning">
                                 Process Auto-picks
                             </a>
@@ -52,7 +52,7 @@
     </div>
 </div>
             <div class="card-body">
-                <a href="{{ url_for('create_week') }}" class="btn btn-success mb-3">
+                <a href="{{ url_for('admin.create_week') }}" class="btn btn-success mb-3">
                     ➕ Create New Week
                 </a>
                 
@@ -83,16 +83,16 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('manage_games', week_id=week.id) }}" 
+                                    <a href="{{ url_for('admin.manage_games', week_id=week.id) }}" 
                                        class="btn btn-primary">Games</a>
                                     
                                     {% if not week.is_active %}
-                                        <a href="{{ url_for('activate_week', week_id=week.id) }}" 
+                                        <a href="{{ url_for('admin.activate_week', week_id=week.id) }}" 
                                            class="btn btn-success">Activate</a>
                                     {% endif %}
                                     
                                     {% if week.is_active and not week.is_complete %}
-                                        <a href="{{ url_for('mark_results', week_id=week.id) }}" 
+                                        <a href="{{ url_for('admin.mark_results', week_id=week.id) }}" 
                                            class="btn btn-warning">Results</a>
                                     {% endif %}
                                 </div>
@@ -116,18 +116,18 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('create_week') }}" class="btn btn-primary">
+                    <a href="{{ url_for('admin.create_week') }}" class="btn btn-primary">
                         📅 Create New Week
                     </a>
-                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
                         👥 View Public Standings
                     </a>
-                    <a href="{{ url_for('admin_users') }}" class="btn btn-info">
-    👥 Manage Users
-</a>
- <a href="{{ url_for('admin_payments') }}" class="btn btn-success">
-#         💰 Track Payments
-#     </a>
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-info">
+                        Manage Users
+                    </a>
+                    <a href="{{ url_for('admin.payments') }}" class="btn btn-success">
+                        Track Payments
+                    </a>
                 </div>
             </div>
         </div>

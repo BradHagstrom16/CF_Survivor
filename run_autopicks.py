@@ -1,5 +1,10 @@
-"""Utility script to run auto-pick processing outside of request handling."""
+"""Utility script to run auto-pick processing outside of request handling.
 
+Run via cron or manually:
+    python run_autopicks.py
+"""
+
+import logging
 import os
 import sys
 
@@ -7,9 +12,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-os.environ.setdefault("ENVIRONMENT", "production")
+os.environ.setdefault('ENVIRONMENT', 'production')
 
-from app import app, check_and_process_autopicks  # noqa: E402
+from app import create_app
+from services.game_logic import check_and_process_autopicks
+
+logger = logging.getLogger(__name__)
+
+app = create_app()
 
 
 def main() -> None:
@@ -18,16 +28,13 @@ def main() -> None:
         try:
             results = check_and_process_autopicks()
             if results:
-                print("Auto-picks processed successfully:")
+                logger.info("Auto-picks processed successfully:")
                 for entry in results:
-                    app.logger.info(entry)
-                    print(f"  • {entry}")
+                    logger.info("  %s", entry)
             else:
-                message = "No auto-picks were required."
-                app.logger.info(message)
-                print(message)
+                logger.info("No auto-picks were required.")
         except Exception:
-            app.logger.exception("Auto-pick processing failed")
+            logger.exception("Auto-pick processing failed")
             raise
 
 

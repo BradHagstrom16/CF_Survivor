@@ -11,6 +11,7 @@
     </div>
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <p class="text-muted">Select the winner of each game:</p>
             
             {% for game in games %}
@@ -62,7 +63,7 @@
                     onclick="return confirm('Are you sure? This will process all picks and update lives.')">
                 Submit Results & Process Picks
             </button>
-            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Cancel</a>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
 </div>

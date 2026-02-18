@@ -1,10 +1,17 @@
-"""Database models for the survivor pool"""
+"""
+CF Survivor Pool - Database Models
+===================================
+SQLAlchemy models for users, teams, weeks, games, and picks.
+"""
+
+from datetime import datetime, timezone
+
+from flask_login import UserMixin
+from sqlalchemy import or_
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import db
-from flask_login import UserMixin
-from datetime import datetime
-from datetime_utils import is_past_deadline, get_chicago_time
-from sqlalchemy import or_
+from timezone_utils import deadline_has_passed
 
 # Conference affiliations for all teams (2024-2025 season)
 TEAM_CONFERENCES = {
@@ -56,126 +63,149 @@ TEAM_CONFERENCES = {
     'Pittsburgh': 'ACC',
     'Army': 'American',
     'Colorado': 'Big 12',
-    'Louisiana-Lafayette': 'Sun Belt'
+    'Louisiana-Lafayette': 'Sun Belt',
 }
 
+
 class User(UserMixin, db.Model):
-    """User model - stores user account information"""
+    __tablename__ = 'user'
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     lives_remaining = db.Column(db.Integer, default=2)
     is_eliminated = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)
     has_paid = db.Column(db.Boolean, default=False)
     cumulative_spread = db.Column(db.Float, default=0.0)
-    
-    # Relationship to picks
+
     picks = db.relationship('Pick', backref='user', lazy=True)
-    
+
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
+
     def calculate_cumulative_spread(self):
-        """Calculate cumulative spread based only on completed weeks"""
+        """Calculate cumulative spread using a single joined query."""
+        results = (
+            db.session.query(Pick, Game)
+            .join(Week, Pick.week_id == Week.id)
+            .join(
+                Game,
+                db.and_(
+                    Game.week_id == Pick.week_id,
+                    db.or_(
+                        Game.home_team_id == Pick.team_id,
+                        Game.away_team_id == Pick.team_id,
+                    ),
+                ),
+            )
+            .filter(Pick.user_id == self.id)
+            .all()
+        )
+
         total = 0.0
-
-        for pick in self.picks:
-            # Only include picks from weeks past their deadline
-            if not is_past_deadline(pick.week.deadline):
+        for pick, game in results:
+            if not deadline_has_passed(pick.week.deadline):
                 continue
-
-            # Find the game to get the spread
-            game = Game.query.filter_by(week_id=pick.week_id).filter(
-                db.or_(Game.home_team_id == pick.team_id, 
-                Game.away_team_id == pick.team_id)
-            ).first()
-
-            if game:
-                # Determine the spread for the picked team
-                if pick.team_id == game.home_team_id:
-                    team_spread = game.home_team_spread
-                else:  # Away team
-                    team_spread = -game.home_team_spread
-
-                # Add to cumulative (favorites add positive, underdogs subtract)
-                if team_spread < 0:  # Favorite
-                    total += abs(team_spread)
-                else:  # Underdog
-                    total -= team_spread
+            if pick.team_id == game.home_team_id:
+                team_spread = game.home_team_spread
+            else:
+                team_spread = -game.home_team_spread
+            # Favorites add positive, underdogs subtract
+            if team_spread < 0:
+                total += abs(team_spread)
+            else:
+                total -= team_spread
 
         self.cumulative_spread = total
         return total
-    
+
     @property
     def display_name(self):
-        """Returns display name for the user"""
         if self.username == 'admin':
             return 'B1G_Brad'
-        # Add any other username mappings here if needed
-        # elif self.username == 'commissioner':
-        #     return 'The Commish'
         return self.username
 
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+
 class Team(db.Model):
-    """Team model - stores college football teams"""
+    __tablename__ = 'team'
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     conference = db.Column(db.String(50))
     national_title_odds = db.Column(db.String(16), nullable=True)
 
     def get_conference(self):
-        """Get the conference for this team"""
         return TEAM_CONFERENCES.get(self.name, 'Unknown')
-    
+
+    def __repr__(self):
+        return f'<Team {self.name}>'
+
+
 class Week(db.Model):
-    """Week model - represents each week of the season"""
+    __tablename__ = 'week'
+
     id = db.Column(db.Integer, primary_key=True)
     week_number = db.Column(db.Integer, unique=True, nullable=False)
     start_date = db.Column(db.DateTime, nullable=False)
-    deadline = db.Column(db.DateTime, nullable=False)  # When picks lock
-    is_active = db.Column(db.Boolean, default=False)  # Current week flag
-    is_complete = db.Column(db.Boolean, default=False)  # Week results finalized
-    is_playoff_week = db.Column(db.Boolean, default=False)  # Playoff week flag
-    round_name = db.Column(db.String(100), nullable=True)  # Display name (e.g., "CFP Round 1")
-    
+    deadline = db.Column(db.DateTime, nullable=False)
+    is_active = db.Column(db.Boolean, default=False)
+    is_complete = db.Column(db.Boolean, default=False)
+    is_playoff_week = db.Column(db.Boolean, default=False)
+    round_name = db.Column(db.String(100), nullable=True)
+
+    def __repr__(self):
+        return f'<Week {self.week_number}>'
+
+
 class Game(db.Model):
-    """Game model - stores individual games and spreads"""
+    __tablename__ = 'game'
+
     id = db.Column(db.Integer, primary_key=True)
     week_id = db.Column(db.Integer, db.ForeignKey('week.id'), nullable=False)
-    home_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)  # Now nullable
-    away_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)  # Now nullable
-    
-    # New fields for non-tracked teams
-    home_team_name = db.Column(db.String(100), nullable=True)  # Store name if not in Team table
-    away_team_name = db.Column(db.String(100), nullable=True)  # Store name if not in Team table
-    
+    home_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    away_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    home_team_name = db.Column(db.String(100), nullable=True)
+    away_team_name = db.Column(db.String(100), nullable=True)
     home_team_spread = db.Column(db.Float)
     game_time = db.Column(db.DateTime)
     home_team_won = db.Column(db.Boolean, default=None)
-    
-    # Update relationships to handle nullable foreign keys
+
     week = db.relationship('Week', backref='games')
     home_team = db.relationship('Team', foreign_keys=[home_team_id], backref='home_games')
     away_team = db.relationship('Team', foreign_keys=[away_team_id], backref='away_games')
-    
+
     def get_home_team_display(self):
-        """Returns the home team name for display"""
         return self.home_team.name if self.home_team else self.home_team_name
-    
+
     def get_away_team_display(self):
-        """Returns the away team name for display"""
         return self.away_team.name if self.away_team else self.away_team_name
 
+    def __repr__(self):
+        return f'<Game {self.get_away_team_display()} @ {self.get_home_team_display()}>'
+
+
 class Pick(db.Model):
-    """Pick model - stores user selections"""
+    __tablename__ = 'pick'
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     week_id = db.Column(db.Integer, db.ForeignKey('week.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
-    is_correct = db.Column(db.Boolean, default=None)  # None = game not complete
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
+    is_correct = db.Column(db.Boolean, default=None)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
     week = db.relationship('Week', backref='picks')
     team = db.relationship('Team', backref='picks')
-    
-    # Ensure user can only pick once per week
+
     __table_args__ = (db.UniqueConstraint('user_id', 'week_id'),)
+
+    def __repr__(self):
+        return f'<Pick user={self.user_id} week={self.week_id}>'

@@ -11,7 +11,7 @@
         <div class="card-body">
             <div class="btn-group" role="group">
                 {% for w in viewable_weeks %}
-                    <a href="{{ url_for('weekly_results', week_number=w.week_number) }}" 
+                    <a href="{{ url_for('main.weekly_results', week_number=w.week_number) }}" 
                        class="btn {% if w.week_number == week.week_number %}btn-primary{% else %}btn-outline-primary{% endif %}">
                         {{ get_week_short_label(w) }}
                         {% if w.is_complete %}
