@@ -35,3 +35,4 @@ venv/
 .claude/ 
 nul 
 CLAUDE.md
+instance/

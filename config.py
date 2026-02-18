@@ -3,24 +3,20 @@ CF Survivor Pool - Configuration
 =================================
 Configuration settings for different environments.
 """
-
 import os
 from dotenv import load_dotenv
-
 load_dotenv()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-
 class Config:
     """Base configuration."""
-
     # Flask
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-change-this')
 
     # Database
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(BASE_DIR, 'picks.db')
+        'sqlite:///' + os.path.join(BASE_DIR, 'instance', 'picks.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Timezone
@@ -42,25 +38,19 @@ class Config:
     # CSRF
     WTF_CSRF_ENABLED = True
 
-
 class DevelopmentConfig(Config):
     """Development configuration."""
     DEBUG = True
 
-
 class ProductionConfig(Config):
     """Production configuration."""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:////home/B1GBrad/CF_Survivor/picks.db'
-
 
 class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     WTF_CSRF_ENABLED = False
-
 
 config = {
     'development': DevelopmentConfig,
