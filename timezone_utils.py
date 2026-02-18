@@ -72,3 +72,13 @@ def parse_form_datetime(datetime_str):
     """Parse datetime from form input and make it timezone-aware in pool timezone"""
     naive_dt = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
     return POOL_TZ.localize(naive_dt)
+
+def safe_is_after(dt1, dt2):
+    """Safely compare two datetimes, handling mixed naive/aware.
+    Returns True if dt1 is after dt2."""
+    if dt1 is None or dt2 is None:
+        return False
+    # Normalize both to aware in pool timezone
+    dt1_aware = make_aware(dt1)
+    dt2_aware = make_aware(dt2)
+    return dt1_aware > dt2_aware

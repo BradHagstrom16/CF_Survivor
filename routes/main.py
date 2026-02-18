@@ -15,7 +15,7 @@ from extensions import db
 from models import User, Team, Week, Game, Pick, TEAM_CONFERENCES
 from timezone_utils import (
     get_current_time, make_aware, deadline_has_passed,
-    format_deadline, to_pool_time, POOL_TZ_NAME,
+    format_deadline, to_pool_time, safe_is_after, POOL_TZ_NAME,
 )
 from display_utils import (
     get_week_display_name, get_week_short_label, is_week_playoff,
@@ -479,6 +479,7 @@ def weekly_results(week_number=None):
     )
     for pick in picks:
         pick.created_at = to_pool_time(pick.created_at)
+        pick.is_autopick = safe_is_after(pick.created_at, week.deadline)
 
     games = Game.query.filter_by(week_id=week.id).all()
     game_results = {}
