@@ -8,9 +8,9 @@ import logging
 import os
 import sys
 
-import pytz
+from zoneinfo import ZoneInfo
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
@@ -38,8 +38,8 @@ class NCAAFootballAPIImporter:
             "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf_championship_winner/odds"
         )
 
-        self.utc_tz = pytz.UTC
-        self.chicago_tz = pytz.timezone('America/Chicago')
+        self.utc_tz = timezone.utc
+        self.chicago_tz = ZoneInfo('America/Chicago')
 
         self.team_name_map = TEAM_NAME_MAP
 
@@ -48,8 +48,8 @@ class NCAAFootballAPIImporter:
             self.tracked_teams = {t.name for t in Team.query.all()}
 
     def fetch_games_for_date_range(self, start_date, end_date):
-        start_utc = self.chicago_tz.localize(start_date).astimezone(self.utc_tz)
-        end_utc = self.chicago_tz.localize(end_date.replace(hour=23, minute=59)).astimezone(self.utc_tz)
+        start_utc = start_date.replace(tzinfo=self.chicago_tz).astimezone(self.utc_tz)
+        end_utc = end_date.replace(hour=23, minute=59, tzinfo=self.chicago_tz).astimezone(self.utc_tz)
 
         params = {
             'apiKey': self.api_key,
@@ -263,7 +263,7 @@ class NCAAFootballAPIImporter:
                 if ct:
                     gt_utc = datetime.fromisoformat(ct.replace('Z', '+00:00'))
                     if gt_utc.tzinfo is None:
-                        gt_utc = self.utc_tz.localize(gt_utc)
+                        gt_utc = gt_utc.replace(tzinfo=self.utc_tz)
                     gt_chi = gt_utc.astimezone(self.chicago_tz)
                 else:
                     gt_chi = datetime.now(self.chicago_tz)

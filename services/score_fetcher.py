@@ -41,7 +41,7 @@ class ScoreFetcher:
             api_credits_remaining: int or None
             error: str or None
         """
-        week = Week.query.get(week_id)
+        week = db.session.get(Week, week_id)
         if not week:
             return {'error': f'Week ID {week_id} not found'}
 
@@ -174,7 +174,7 @@ class ScoreFetcher:
         tie_games = []
 
         for result in results:
-            game = Game.query.get(result['game_id'])
+            game = db.session.get(Game, result['game_id'])
             if not game:
                 skipped += 1
                 continue
@@ -227,7 +227,7 @@ class ScoreFetcher:
             fetch_results: raw fetch results
             apply_results: raw apply results (if applicable)
         """
-        week = Week.query.get(week_id)
+        week = db.session.get(Week, week_id)
         if not week:
             return {'status': 'error', 'details': f'Week ID {week_id} not found'}
 

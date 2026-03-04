@@ -7,10 +7,10 @@ and admin notifications.
 
 import logging
 import smtplib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 
-import pytz
+from zoneinfo import ZoneInfo
 import requests
 from flask import current_app
 
@@ -24,7 +24,7 @@ from timezone_utils import deadline_has_passed, make_aware
 
 logger = logging.getLogger(__name__)
 
-CHICAGO_TZ = pytz.timezone('America/Chicago')
+CHICAGO_TZ = ZoneInfo('America/Chicago')
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +76,8 @@ def _calculate_week_dates(week_number):
     saturday = start_date + timedelta(days=days_until_saturday)
     deadline = saturday.replace(hour=deadline_hour, minute=deadline_minute, second=0, microsecond=0)
 
-    start_aware = CHICAGO_TZ.localize(start_date)
-    deadline_aware = CHICAGO_TZ.localize(deadline)
+    start_aware = start_date.replace(tzinfo=CHICAGO_TZ)
+    deadline_aware = deadline.replace(tzinfo=CHICAGO_TZ)
 
     return start_aware, deadline_aware
 
@@ -195,7 +195,7 @@ def run_spread_update():
 
     # Fetch odds from API
     api_key = current_app.config.get('ODDS_API_KEY', '')
-    utc_tz = pytz.UTC
+    utc_tz = timezone.utc
     chicago_tz = CHICAGO_TZ
 
     # Build date range from the week's games
@@ -208,9 +208,9 @@ def run_spread_update():
 
     # Ensure timezone-aware for API
     if earliest.tzinfo is None:
-        earliest = chicago_tz.localize(earliest)
+        earliest = earliest.replace(tzinfo=chicago_tz)
     if latest.tzinfo is None:
-        latest = chicago_tz.localize(latest)
+        latest = latest.replace(tzinfo=chicago_tz)
 
     start_utc = earliest.astimezone(utc_tz) - timedelta(hours=6)
     end_utc = latest.astimezone(utc_tz) + timedelta(hours=6)
@@ -244,7 +244,7 @@ def run_spread_update():
 
     updated = 0
     locked = 0
-    now = datetime.now(pytz.UTC)
+    now = datetime.now(timezone.utc)
 
     for game in games:
         if game.spread_locked_at:

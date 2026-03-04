@@ -44,10 +44,13 @@
                     <select name="team_id" class="form-select" required>
                         <option value="">-- Choose a Team --</option>
                         {% for team in eligible_teams | sort(attribute='name') %}
-                            <option value="{{ team.id }}" 
+                            <option value="{{ team.id }}"
                                 {% if existing_pick and existing_pick.team_id == team.id %}selected{% endif %}>
                                 {{ team.name }}
-                                {% if existing_pick and existing_pick.team_id == team.id %}(Current Pick){% endif %}
+                                {% if team.id in team_spreads %}
+                                    ({{ "%+.1f"|format(team_spreads[team.id]) }})
+                                {% endif %}
+                                {% if existing_pick and existing_pick.team_id == team.id %} - Current Pick{% endif %}
                             </option>
                         {% endfor %}
                     </select>
@@ -87,7 +90,7 @@
                         {{ game.get_away_team_display() }} @ {{ game.get_home_team_display() }}
                     </h6>
                     <p class="card-text small">
-                        {% if game.game_time %}{{ game.game_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
+                        {% if game._aware_time %}{{ game._aware_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
                         <span class="badge bg-dark ms-1">LOCKED - GAME STARTED</span>
                         <br>
                         Spread: 
@@ -122,8 +125,8 @@
                                     {{ away_display }} @ {{ home_display }}
                                 </h6>
                                 <p class="card-text small">
-                                    {% if game.game_time %}{{ game.game_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
-                                    {% if game.game_time and game.game_time < current_time %}
+                                    {% if game._aware_time %}{{ game._aware_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
+                                    {% if game._aware_time and game._aware_time < current_time %}
                                     <span class="badge bg-dark ms-1">LOCKED</span>
                                      {% endif %}
                                      <br>

@@ -13,7 +13,7 @@ import os
 import sys
 from datetime import datetime
 
-import pytz
+from zoneinfo import ZoneInfo
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 app = create_app()
 
-CHICAGO_TZ = pytz.timezone('America/Chicago')
+CHICAGO_TZ = ZoneInfo('America/Chicago')
 
 
 def main():
@@ -39,28 +39,32 @@ def main():
     print(f"\n[daily_sync] {now.strftime('%Y-%m-%d %I:%M %p %Z')} ({day_name})")
 
     with app.app_context():
-        # Monday: setup new week + score check for previous week
-        if weekday == 0:
-            print("Running: setup + scores")
-            result = run_setup()
-            print(f"  setup: {result.get('details', result)}")
-            result = run_scores()
-            print(f"  scores: {result.get('details', result)}")
+        try:
+            # Monday: setup new week + score check for previous week
+            if weekday == 0:
+                print("Running: setup + scores")
+                result = run_setup()
+                print(f"  setup: {result.get('details', result)}")
+                result = run_scores()
+                print(f"  scores: {result.get('details', result)}")
 
-        # Tuesday: lock spreads
-        elif weekday == 1:
-            print("Running: spread update")
-            result = run_spread_update()
-            print(f"  spreads: {result.get('details', result)}")
+            # Tuesday: lock spreads
+            elif weekday == 1:
+                print("Running: spread update")
+                result = run_spread_update()
+                print(f"  spreads: {result.get('details', result)}")
 
-        # Saturday/Sunday: fetch scores
-        elif weekday in (5, 6):
-            print("Running: scores")
-            result = run_scores()
-            print(f"  scores: {result.get('details', result)}")
+            # Saturday/Sunday: fetch scores
+            elif weekday in (5, 6):
+                print("Running: scores")
+                result = run_scores()
+                print(f"  scores: {result.get('details', result)}")
 
-        else:
-            print(f"No automated actions for {day_name}")
+            else:
+                print(f"No automated actions for {day_name}")
+        except Exception:
+            logger.exception("Daily sync failed")
+            raise
 
 
 if __name__ == "__main__":

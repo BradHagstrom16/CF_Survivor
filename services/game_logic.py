@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__)
 # Team eligibility (consolidates the duplicated logic from app.py)
 # ---------------------------------------------------------------------------
 
+def get_game_for_team(week_id, team_id):
+    """Return the Game in this week that involves the given team."""
+    return Game.query.filter_by(week_id=week_id).filter(
+        db.or_(Game.home_team_id == team_id, Game.away_team_id == team_id)
+    ).first()
+
+
 def get_used_team_ids(user_id, week, *, exclude_current=True):
     """Return set of team IDs the user has already picked in the current phase."""
     q = db.session.query(Pick.team_id).join(Week)
@@ -45,7 +52,7 @@ def get_used_team_ids(user_id, week, *, exclude_current=True):
 
 def process_week_results(week_id):
     """Process pick results and update user lives. Includes revival rule."""
-    week = Week.query.get(week_id)
+    week = db.session.get(Week, week_id)
     picks = Pick.query.filter_by(week_id=week_id).all()
 
     # Track active users who had 1 life at START of week (for revival rule)
@@ -61,7 +68,7 @@ def process_week_results(week_id):
                 Game.home_team_id == pick.team_id,
                 Game.away_team_id == pick.team_id,
             ),
-            Game.home_team_won != None,
+            Game.home_team_won != None,  # noqa: E711
         ).first()
 
         if game:
@@ -81,25 +88,20 @@ def process_week_results(week_id):
 
     db.session.commit()
 
-    # Revival rule: if ALL users with 1 life lost, revive them
-    if (
-        users_with_one_life_before
-        and len(users_with_one_life_before) == len(active_user_ids)
-    ):
-        users_to_check = User.query.filter(
+    # Revival rule: if ALL users who had 1 life before this week lost, revive them
+    if users_with_one_life_before:
+        one_lifers = User.query.filter(
             User.id.in_(users_with_one_life_before)
         ).all()
-        all_eliminated = all(u.lives_remaining == 0 for u in users_to_check)
-
-        if all_eliminated:
-            for user in users_to_check:
+        if all(u.lives_remaining == 0 for u in one_lifers):
+            for user in one_lifers:
                 user.lives_remaining = 1
                 user.is_eliminated = False
             db.session.commit()
             logger.info(
                 "REVIVAL RULE ACTIVATED: Week %s - %d users revived",
                 week.week_number,
-                len(users_to_check),
+                len(one_lifers),
             )
 
 
@@ -109,7 +111,7 @@ def process_week_results(week_id):
 
 def process_autopicks(week_id):
     """Process auto-picks for users who missed the deadline."""
-    week = Week.query.get(week_id)
+    week = db.session.get(Week, week_id)
     deadline = make_aware(week.deadline)
 
     if not deadline_has_passed(deadline):

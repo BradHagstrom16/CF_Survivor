@@ -4,13 +4,13 @@ Handles all timezone conversions and datetime operations
 """
 
 from datetime import datetime, timezone
-import pytz
+from zoneinfo import ZoneInfo
 import os
 
 # Get the pool's timezone from environment or default to Chicago
 POOL_TZ_NAME = os.getenv('POOL_TIMEZONE', 'America/Chicago')
-POOL_TZ = pytz.timezone(POOL_TZ_NAME)
-UTC_TZ = pytz.UTC
+POOL_TZ = ZoneInfo(POOL_TZ_NAME)
+UTC_TZ = timezone.utc
 
 def get_current_time():
     """Get current time in the pool's timezone (aware)"""
@@ -26,7 +26,7 @@ def make_aware(dt, tz=POOL_TZ):
         return None
     if dt.tzinfo is None:
         # Assume naive datetimes are in pool timezone
-        return tz.localize(dt)
+        return dt.replace(tzinfo=tz)
     return dt
 
 def to_utc(dt):
@@ -51,27 +51,25 @@ def deadline_has_passed(deadline):
 
 def format_deadline(deadline):
     """Format deadline for display in Chicago timezone"""
-    import pytz
-    
     if deadline is None:
         return 'TBD'
-    
-    chicago_tz = pytz.timezone('America/Chicago')
-    
+
+    chicago_tz = ZoneInfo('America/Chicago')
+
     # If deadline has timezone info, convert to Chicago
     if deadline.tzinfo is not None:
         deadline_chicago = deadline.astimezone(chicago_tz)
     else:
         # If naive, assume it's already in Chicago time
-        deadline_chicago = chicago_tz.localize(deadline)
-    
+        deadline_chicago = deadline.replace(tzinfo=chicago_tz)
+
     # Format with CDT/CST shown
     return deadline_chicago.strftime('%B %d, %Y at %I:%M %p %Z')
 
 def parse_form_datetime(datetime_str):
     """Parse datetime from form input and make it timezone-aware in pool timezone"""
     naive_dt = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
-    return POOL_TZ.localize(naive_dt)
+    return naive_dt.replace(tzinfo=POOL_TZ)
 
 def safe_is_after(dt1, dt2):
     """Safely compare two datetimes, handling mixed naive/aware.

@@ -8,8 +8,8 @@ import logging
 from datetime import datetime
 from functools import wraps
 
-import pytz
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from zoneinfo import ZoneInfo
+from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func
 
@@ -47,7 +47,7 @@ def dashboard():
     current_time = get_current_time()
 
     for week in weeks:
-        week.deadline = make_aware(week.deadline)
+        week._aware_deadline = make_aware(week.deadline)
 
     return render_template(
         'admin/dashboard.html',
@@ -64,14 +64,22 @@ def dashboard():
 @admin_required
 def create_week():
     if request.method == 'POST':
-        chicago_tz = pytz.timezone('America/Chicago')
-        week_number = int(request.form.get('week_number'))
+        chicago_tz = ZoneInfo('America/Chicago')
+        try:
+            week_number = int(request.form.get('week_number', ''))
+        except (ValueError, TypeError):
+            flash('Invalid week number.', 'error')
+            return redirect(url_for('admin.create_week'))
 
-        start_date_naive = datetime.strptime(request.form.get('start_date'), '%Y-%m-%dT%H:%M')
-        deadline_naive = datetime.strptime(request.form.get('deadline'), '%Y-%m-%dT%H:%M')
+        try:
+            start_date_naive = datetime.strptime(request.form.get('start_date'), '%Y-%m-%dT%H:%M')
+            deadline_naive = datetime.strptime(request.form.get('deadline'), '%Y-%m-%dT%H:%M')
+        except (ValueError, TypeError):
+            flash('Invalid date format.', 'error')
+            return redirect(url_for('admin.create_week'))
 
-        start_date = chicago_tz.localize(start_date_naive)
-        deadline = chicago_tz.localize(deadline_naive)
+        start_date = start_date_naive.replace(tzinfo=chicago_tz)
+        deadline = deadline_naive.replace(tzinfo=chicago_tz)
 
         existing = Week.query.filter_by(week_number=week_number).first()
         if existing:
@@ -103,7 +111,7 @@ def create_week():
 @admin_required
 def activate_week(week_id):
     Week.query.update({'is_active': False})
-    week = Week.query.get_or_404(week_id)
+    week = db.get_or_404(Week, week_id)
     week.is_active = True
     db.session.commit()
     flash(f'Week {week.week_number} is now active!', 'success')
@@ -113,13 +121,17 @@ def activate_week(week_id):
 @admin_bp.route('/week/<int:week_id>/games', methods=['GET', 'POST'])
 @admin_required
 def manage_games(week_id):
-    week = Week.query.get_or_404(week_id)
+    week = db.get_or_404(Week, week_id)
 
     if request.method == 'POST':
-        home_team_id = int(request.form.get('home_team_id'))
-        away_team_id = int(request.form.get('away_team_id'))
-        home_spread = float(request.form.get('home_spread'))
-        game_time = datetime.strptime(request.form.get('game_time'), '%Y-%m-%dT%H:%M')
+        try:
+            home_team_id = int(request.form.get('home_team_id', ''))
+            away_team_id = int(request.form.get('away_team_id', ''))
+            home_spread = float(request.form.get('home_spread', ''))
+            game_time = datetime.strptime(request.form.get('game_time'), '%Y-%m-%dT%H:%M')
+        except (ValueError, TypeError):
+            flash('Invalid game data. Check all fields.', 'error')
+            return redirect(url_for('admin.manage_games', week_id=week_id))
 
         if home_team_id == away_team_id:
             flash('Home team and away team cannot be the same.', 'error')
@@ -147,7 +159,7 @@ def manage_games(week_id):
 @admin_bp.route('/game/<int:game_id>/delete', methods=['POST'])
 @admin_required
 def delete_game(game_id):
-    game = Game.query.get_or_404(game_id)
+    game = db.get_or_404(Game, game_id)
     week_id = game.week_id
     db.session.delete(game)
     db.session.commit()
@@ -158,7 +170,7 @@ def delete_game(game_id):
 @admin_bp.route('/week/<int:week_id>/results', methods=['GET', 'POST'])
 @admin_required
 def mark_results(week_id):
-    week = Week.query.get_or_404(week_id)
+    week = db.get_or_404(Week, week_id)
     games = Game.query.filter_by(week_id=week_id).all()
 
     if request.method == 'POST':
@@ -197,7 +209,7 @@ def users():
 @admin_bp.route('/reset-password/<int:user_id>', methods=['POST'])
 @admin_required
 def reset_password(user_id):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     new_password = request.form.get('new_password')
 
     if new_password:
@@ -235,7 +247,6 @@ def admin_process_autopicks(week_id):
 @admin_bp.route('/payments')
 @admin_required
 def payments():
-    from flask import current_app
     users_list = User.query.order_by(func.lower(User.username)).all()
     entry_fee = current_app.config.get('ENTRY_FEE', 25)
 
@@ -257,7 +268,7 @@ def payments():
 @admin_bp.route('/update-payment/<int:user_id>', methods=['POST'])
 @admin_required
 def update_payment(user_id):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     data = request.get_json()
     has_paid = data.get('has_paid', False)
     user.has_paid = has_paid
@@ -271,11 +282,15 @@ def manage_teams():
     """Add/remove teams from the Team table using the FBS master list."""
     existing_teams = {t.name: t for t in Team.query.all()}
 
-    # Teams with picks can't be removed
-    teams_with_picks = set()
-    for team_name, team in existing_teams.items():
-        if Pick.query.filter_by(team_id=team.id).count() > 0:
-            teams_with_picks.add(team_name)
+    # Teams with picks can't be removed — single query instead of N queries
+    picked_team_ids = {
+        row[0]
+        for row in db.session.query(Pick.team_id)
+        .filter(Pick.team_id != None)
+        .distinct()
+        .all()
+    }
+    teams_with_picks = {name for name, team in existing_teams.items() if team.id in picked_team_ids}
 
     if request.method == 'POST':
         selected_names = set(request.form.getlist('teams'))
@@ -340,7 +355,7 @@ def fetch_scores(week_id):
     fetcher = ScoreFetcher()
     results = fetcher.fetch_scores_for_week(week_id)
 
-    week = Week.query.get_or_404(week_id)
+    week = db.get_or_404(Week, week_id)
 
     if results.get('error'):
         flash(results['error'], 'error')
@@ -357,7 +372,7 @@ def fetch_scores(week_id):
 @admin_required
 def confirm_scores(week_id):
     """Apply admin-reviewed scores and process results if all games decided."""
-    week = Week.query.get_or_404(week_id)
+    week = db.get_or_404(Week, week_id)
     games = Game.query.filter_by(week_id=week_id).all()
 
     updated = 0

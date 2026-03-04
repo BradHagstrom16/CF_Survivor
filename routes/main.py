@@ -4,7 +4,7 @@ CF Survivor Pool - Main Routes
 Public/user routes: standings, picks, results.
 """
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import func
 
@@ -20,29 +20,33 @@ from display_utils import (
     get_playoff_teams, get_cfp_eliminated_teams, get_cfp_active_teams,
     get_cfp_teams_on_bye, get_cfp_teams_in_week,
 )
-from services.game_logic import get_used_team_ids
+from services.game_logic import get_used_team_ids, get_game_for_team
 
 main_bp = Blueprint('main', __name__)
 
 
 @main_bp.route('/')
 def index():
-    from flask import current_app
     current_week = Week.query.filter_by(is_active=True).first()
 
     user_pick = None
     user_pick_spread = None
+    games_by_team = {}
+
+    if current_week:
+        # Bulk-load all games for the current week into a lookup dict
+        for game in Game.query.filter_by(week_id=current_week.id).all():
+            if game.home_team_id:
+                games_by_team[game.home_team_id] = game
+            if game.away_team_id:
+                games_by_team[game.away_team_id] = game
+
     if current_week and current_user.is_authenticated:
         user_pick = Pick.query.filter_by(
             user_id=current_user.id, week_id=current_week.id
         ).first()
         if user_pick:
-            game = Game.query.filter_by(week_id=current_week.id).filter(
-                db.or_(
-                    Game.home_team_id == user_pick.team_id,
-                    Game.away_team_id == user_pick.team_id,
-                )
-            ).first()
+            game = games_by_team.get(user_pick.team_id)
             if game:
                 if user_pick.team_id == game.home_team_id:
                     user_pick_spread = game.home_team_spread
@@ -58,12 +62,7 @@ def index():
         if show_picks:
             all_picks = Pick.query.filter_by(week_id=current_week.id).all()
             for pick in all_picks:
-                game = Game.query.filter_by(week_id=current_week.id).filter(
-                    db.or_(
-                        Game.home_team_id == pick.team_id,
-                        Game.away_team_id == pick.team_id,
-                    )
-                ).first()
+                game = games_by_team.get(pick.team_id)
                 if game:
                     if pick.team_id == game.home_team_id:
                         spread = game.home_team_spread
@@ -97,13 +96,17 @@ def index():
         champion_correct = sum(1 for p in champion_picks if p.is_correct is True)
         weeks_played = Week.query.filter_by(is_complete=True).count()
 
+        # Bulk-load games for all champion pick weeks
+        champion_week_ids = {p.week_id for p in champion_picks}
+        champion_games_by_team = {}
+        for game in Game.query.filter(Game.week_id.in_(champion_week_ids)).all():
+            if game.home_team_id:
+                champion_games_by_team[(game.week_id, game.home_team_id)] = game
+            if game.away_team_id:
+                champion_games_by_team[(game.week_id, game.away_team_id)] = game
+
         for pick in champion_picks:
-            game = Game.query.filter_by(week_id=pick.week_id).filter(
-                db.or_(
-                    Game.home_team_id == pick.team_id,
-                    Game.away_team_id == pick.team_id,
-                )
-            ).first()
+            game = champion_games_by_team.get((pick.week_id, pick.team_id))
             if game:
                 if pick.team_id == game.home_team_id:
                     pick.spread = game.home_team_spread
@@ -156,12 +159,7 @@ def make_pick(week_number):
 
     pick_locked = False
     if existing_pick:
-        existing_game = Game.query.filter_by(week_id=week.id).filter(
-            db.or_(
-                Game.home_team_id == existing_pick.team_id,
-                Game.away_team_id == existing_pick.team_id,
-            )
-        ).first()
+        existing_game = get_game_for_team(week.id, existing_pick.team_id)
 
         if existing_game and existing_game.game_time:
             if safe_is_after(current_time, existing_game.game_time):
@@ -175,11 +173,18 @@ def make_pick(week_number):
         if pick_locked:
             flash('Your pick is locked - that game has already started.', 'error')
         else:
-            team_id = int(request.form.get('team_id'))
+            try:
+                team_id = int(request.form.get('team_id', ''))
+            except (ValueError, TypeError):
+                flash('Invalid team selection.', 'error')
+                return redirect(url_for('main.make_pick', week_number=week_number))
 
-            new_team_game = Game.query.filter_by(week_id=week.id).filter(
-                db.or_(Game.home_team_id == team_id, Game.away_team_id == team_id)
-            ).first()
+            team = db.session.get(Team, team_id)
+            if not team:
+                flash('Invalid team selection.', 'error')
+                return redirect(url_for('main.make_pick', week_number=week_number))
+
+            new_team_game = get_game_for_team(week.id, team_id)
 
             if new_team_game and new_team_game.game_time:
                 if safe_is_after(current_time, new_team_game.game_time):
@@ -222,7 +227,7 @@ def make_pick(week_number):
     # GET: build eligible teams
     games = Game.query.filter_by(week_id=week.id).all()
     for game in games:
-        game.game_time = make_aware(game.game_time)
+        game._aware_time = make_aware(game.game_time)
 
     used_team_ids = get_used_team_ids(current_user.id, week)
 
@@ -234,7 +239,7 @@ def make_pick(week_number):
             if is_week_playoff(week) and game.home_team.name in cfp_eliminated_names:
                 continue
             if game.home_team_spread >= -16:
-                can_pick = not safe_is_after(current_time, game.game_time)
+                can_pick = not safe_is_after(current_time, game._aware_time)
                 if can_pick:
                     eligible_teams.append(game.home_team)
                     teams_added.add(game.home_team.id)
@@ -244,10 +249,18 @@ def make_pick(week_number):
                 continue
             away_spread = -game.home_team_spread
             if away_spread >= -16:
-                can_pick = not safe_is_after(current_time, game.game_time)
+                can_pick = not safe_is_after(current_time, game._aware_time)
                 if can_pick:
                     eligible_teams.append(game.away_team)
                     teams_added.add(game.away_team.id)
+
+    # Build team→spread lookup for the dropdown display
+    team_spreads = {}
+    for game in games:
+        if game.home_team_id:
+            team_spreads[game.home_team_id] = game.home_team_spread
+        if game.away_team_id:
+            team_spreads[game.away_team_id] = -game.home_team_spread
 
     return render_template(
         'pick.html',
@@ -258,6 +271,7 @@ def make_pick(week_number):
         format_deadline=format_deadline,
         current_time=current_time,
         pick_locked=pick_locked,
+        team_spreads=team_spreads,
     )
 
 
@@ -283,19 +297,9 @@ def my_picks():
             ),
         }
 
-        game = Game.query.filter_by(week_id=pick.week_id).filter(
-            db.or_(
-                Game.home_team_id == pick.team_id,
-                Game.away_team_id == pick.team_id,
-            )
-        ).first()
-
+        game = get_game_for_team(pick.week_id, pick.team_id)
         if game:
-            if pick.team_id == game.home_team_id:
-                team_spread = game.home_team_spread
-            else:
-                team_spread = -game.home_team_spread
-            pick.spread_data = {'team_spread': team_spread}
+            pick.spread_data = {'team_spread': game.get_spread_for_team(pick.team_id)}
         else:
             pick.spread_data = None
 
@@ -460,8 +464,8 @@ def weekly_results(week_number=None):
         .all()
     )
     for pick in picks:
-        pick.created_at = to_pool_time(pick.created_at)
-        pick.is_autopick = safe_is_after(pick.created_at, week.deadline)
+        pick._pool_created_at = to_pool_time(pick.created_at)
+        pick.is_autopick = safe_is_after(pick._pool_created_at, week.deadline)
 
     games = Game.query.filter_by(week_id=week.id).all()
     game_results = {}
@@ -493,17 +497,23 @@ def weekly_results(week_number=None):
     incorrect_picks_list = [p for p in picks if p.is_correct is False]
     pending_picks_list = [p for p in picks if p.is_correct is None]
 
+    # Bulk-load all picks up to the current week to avoid N+1 queries
+    from collections import defaultdict
+    all_past_picks = (
+        Pick.query.join(Week)
+        .filter(Week.week_number <= week.week_number)
+        .order_by(Week.week_number)
+        .all()
+    )
+    picks_by_user = defaultdict(list)
+    for p in all_past_picks:
+        picks_by_user[p.user_id].append(p)
+
     user_statuses = {}
     for user in all_users:
         lives = 2
         eliminated_week = None
-        past_picks = (
-            Pick.query.join(Week)
-            .filter(Pick.user_id == user.id, Week.week_number <= week.week_number)
-            .order_by(Week.week_number)
-            .all()
-        )
-        for past_pick in past_picks:
+        for past_pick in picks_by_user.get(user.id, []):
             if past_pick.is_correct is False:
                 lives -= 1
                 if lives <= 0:

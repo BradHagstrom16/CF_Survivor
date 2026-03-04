@@ -12,7 +12,7 @@ import sys
 from datetime import datetime
 from email.mime.text import MIMEText
 
-import pytz
+from zoneinfo import ZoneInfo
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 app = create_app()
 
-CHICAGO = pytz.timezone("America/Chicago")
+CHICAGO = ZoneInfo("America/Chicago")
 
 
 def current_week():
@@ -35,7 +35,7 @@ def current_week():
     with app.app_context():
         week = Week.query.filter_by(is_active=True).first()
         if week and week.deadline.tzinfo is None:
-            week.deadline = CHICAGO.localize(week.deadline)
+            week.deadline = week.deadline.replace(tzinfo=CHICAGO)
         return week
 
 

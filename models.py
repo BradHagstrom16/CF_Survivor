@@ -139,6 +139,12 @@ class Game(db.Model):
     def get_away_team_display(self):
         return self.away_team.name if self.away_team else self.away_team_name
 
+    def get_spread_for_team(self, team_id):
+        """Return spread from team's perspective (negative = favored)."""
+        if team_id == self.home_team_id:
+            return self.home_team_spread
+        return -self.home_team_spread
+
     def __repr__(self):
         return f'<Game {self.get_away_team_display()} @ {self.get_home_team_display()}>'
 

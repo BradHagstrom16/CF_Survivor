@@ -22,7 +22,6 @@ ordered-set==4.1.0
 packaging==26.0
 Pygments==2.19.2
 python-dotenv==1.2.1
-pytz==2025.2
 requests==2.32.5
 rich==13.9.4
 SQLAlchemy==2.0.47

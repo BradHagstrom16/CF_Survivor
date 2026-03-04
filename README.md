@@ -173,4 +173,4 @@ All configuration is via environment variables (loaded from `.env`). See `.env.e
 
 **Email reminders not sending** — Use a Gmail [app-specific password](https://myaccount.google.com/apppasswords), not your regular password. Verify `EMAIL_ADDRESS` and `EMAIL_PASSWORD` in `.env`.
 
-**Timezone issues** — All deadlines use America/Chicago (Central Time). Make sure `pytz` is installed.
+**Timezone issues** — All deadlines use America/Chicago (Central Time). Python 3.9+ `zoneinfo` module is used (no external dependency).
