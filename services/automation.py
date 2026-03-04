@@ -158,16 +158,24 @@ def run_setup():
     games = importer.fetch_games_for_date_range(start_naive, end_naive)
     if games:
         importer.import_games_to_database(games, next_week_num)
-        game_count = Game.query.filter_by(week_id=existing.id).count()
-    else:
-        game_count = 0
+    game_count = Game.query.filter_by(week_id=existing.id).count()
+
+    display_name = round_name or f'Week {next_week_num}'
+
+    if game_count == 0:
+        logger.error("Week %d created but has 0 games - NOT activating", next_week_num)
+        return {
+            'status': 'error',
+            'details': f'{display_name} created but no games were imported. Week NOT activated.',
+            'week_number': next_week_num,
+            'game_count': 0,
+        }
 
     # Activate the week (deactivate others)
     Week.query.update({'is_active': False})
     existing.is_active = True
     db.session.commit()
 
-    display_name = round_name or f'Week {next_week_num}'
     return {
         'status': 'created',
         'details': f'{display_name} created with {game_count} games and activated',
@@ -226,7 +234,7 @@ def run_spread_update():
 
     try:
         url = f"{API_BASE_URL}/odds"
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=30)
         if response.status_code != 200:
             return {'status': 'error', 'details': f'API returned status {response.status_code}'}
         api_events = response.json()

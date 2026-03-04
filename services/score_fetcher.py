@@ -29,6 +29,8 @@ class ScoreFetcher:
 
     def __init__(self):
         self.api_key = current_app.config.get('ODDS_API_KEY', '')
+        if not self.api_key:
+            logger.warning("ODDS_API_KEY is not configured; score fetching will fail.")
         self.scores_url = f"{API_BASE_URL}/scores"
 
     def fetch_scores_for_week(self, week_id):
@@ -59,7 +61,7 @@ class ScoreFetcher:
         }
 
         try:
-            response = requests.get(self.scores_url, params=params)
+            response = requests.get(self.scores_url, params=params, timeout=30)
             if response.status_code != 200:
                 return {'error': f'API returned status {response.status_code}'}
             api_events = response.json()
@@ -281,11 +283,19 @@ class ScoreFetcher:
         # All games decided - process results
         week.is_complete = True
         db.session.commit()
-        process_week_results(week_id)
+        result = process_week_results(week_id)
 
-        return {
-            'status': 'completed',
-            'details': f'Week {week.week_number} fully processed. {apply_results["updated_count"]} games scored.',
-            'fetch_results': fetch_results,
-            'apply_results': apply_results,
-        }
+        if result.get("success"):
+            return {
+                'status': 'completed',
+                'details': f'Week {week.week_number} fully processed. {apply_results["updated_count"]} games scored.',
+                'fetch_results': fetch_results,
+                'apply_results': apply_results,
+            }
+        else:
+            return {
+                'status': 'error',
+                'details': f'Scores applied but result processing failed: {result.get("error")}',
+                'fetch_results': fetch_results,
+                'apply_results': apply_results,
+            }

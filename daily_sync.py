@@ -31,37 +31,42 @@ app = create_app()
 CHICAGO_TZ = ZoneInfo('America/Chicago')
 
 
+def _log_result(label, result):
+    """Log a result dict at the appropriate level based on status."""
+    details = result.get('details', str(result))
+    if result.get('status') == 'error':
+        logger.error("%s FAILED: %s", label, details)
+    else:
+        logger.info("%s: %s", label, details)
+
+
 def main():
     now = datetime.now(CHICAGO_TZ)
     weekday = now.weekday()  # 0=Mon, 1=Tue, ..., 5=Sat, 6=Sun
     day_name = now.strftime('%A')
 
-    print(f"\n[daily_sync] {now.strftime('%Y-%m-%d %I:%M %p %Z')} ({day_name})")
+    logger.info("[daily_sync] %s (%s)", now.strftime('%Y-%m-%d %I:%M %p %Z'), day_name)
 
     with app.app_context():
         try:
             # Monday: setup new week + score check for previous week
             if weekday == 0:
-                print("Running: setup + scores")
-                result = run_setup()
-                print(f"  setup: {result.get('details', result)}")
-                result = run_scores()
-                print(f"  scores: {result.get('details', result)}")
+                logger.info("Running: setup + scores")
+                _log_result("setup", run_setup())
+                _log_result("scores", run_scores())
 
             # Tuesday: lock spreads
             elif weekday == 1:
-                print("Running: spread update")
-                result = run_spread_update()
-                print(f"  spreads: {result.get('details', result)}")
+                logger.info("Running: spread update")
+                _log_result("spreads", run_spread_update())
 
             # Saturday/Sunday: fetch scores
             elif weekday in (5, 6):
-                print("Running: scores")
-                result = run_scores()
-                print(f"  scores: {result.get('details', result)}")
+                logger.info("Running: scores")
+                _log_result("scores", run_scores())
 
             else:
-                print(f"No automated actions for {day_name}")
+                logger.info("No automated actions for %s", day_name)
         except Exception:
             logger.exception("Daily sync failed")
             raise

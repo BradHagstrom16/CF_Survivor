@@ -88,7 +88,12 @@ No test suite exists. No linter is configured.
 - All timestamps use `datetime.now(timezone.utc)` (not deprecated `utcnow()`)
 - Pool timezone is `America/Chicago` (Central Time), stored as `POOL_TZ` in `timezone_utils.py`
 - Deadlines stored as naive datetimes in SQLite (assumed Central Time)
-- ORM style: SQLAlchemy 2.0 — use `db.session.get(Model, id)`, not `Model.query.get(id)`
+- Timezone: `zoneinfo.ZoneInfo` (not pytz) — use `.replace(tzinfo=tz)` not `.localize()`
+- ORM style: SQLAlchemy 2.0 — use `db.session.get(Model, id)` and `db.get_or_404(Model, id)`
+- ORM safety: never mutate ORM attributes for display — use transient attrs (`game._aware_time`, `week._aware_deadline`)
+- Template context: `display_utils.py` injects `get_week_display_name`, `get_week_short_label`, `is_week_playoff`, `format_deadline` globally
+- Helper: `get_game_for_team(week_id, team_id)` in `services/game_logic.py` — finds a team's game
+- Helper: `Game.get_spread_for_team(team_id)` — returns spread from team's perspective
 - Flask-Limiter rate-limits login to 10/min
 - CSRF via Flask-WTF on all forms; AJAX calls include `X-CSRFToken` header
 - Open redirect prevention: login rejects absolute URLs in `next` param

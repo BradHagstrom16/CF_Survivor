@@ -8,7 +8,6 @@ import logging
 from datetime import datetime
 from functools import wraps
 
-from zoneinfo import ZoneInfo
 from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func
@@ -16,7 +15,7 @@ from sqlalchemy import func
 from extensions import db
 from models import User, Team, Week, Game, Pick
 from constants import FBS_MASTER_TEAMS, TEAM_CONFERENCES
-from timezone_utils import get_current_time, format_deadline, make_aware, POOL_TZ_NAME
+from timezone_utils import get_current_time, format_deadline, make_aware, parse_form_datetime, POOL_TZ_NAME
 from services.game_logic import process_week_results, process_autopicks
 
 logger = logging.getLogger(__name__)
@@ -64,7 +63,6 @@ def dashboard():
 @admin_required
 def create_week():
     if request.method == 'POST':
-        chicago_tz = ZoneInfo('America/Chicago')
         try:
             week_number = int(request.form.get('week_number', ''))
         except (ValueError, TypeError):
@@ -72,14 +70,11 @@ def create_week():
             return redirect(url_for('admin.create_week'))
 
         try:
-            start_date_naive = datetime.strptime(request.form.get('start_date'), '%Y-%m-%dT%H:%M')
-            deadline_naive = datetime.strptime(request.form.get('deadline'), '%Y-%m-%dT%H:%M')
+            start_date = parse_form_datetime(request.form.get('start_date'))
+            deadline = parse_form_datetime(request.form.get('deadline'))
         except (ValueError, TypeError):
             flash('Invalid date format.', 'error')
             return redirect(url_for('admin.create_week'))
-
-        start_date = start_date_naive.replace(tzinfo=chicago_tz)
-        deadline = deadline_naive.replace(tzinfo=chicago_tz)
 
         existing = Week.query.filter_by(week_number=week_number).first()
         if existing:
@@ -104,7 +99,7 @@ def create_week():
         flash(f'{display_name} created successfully!', 'success')
         return redirect(url_for('admin.dashboard'))
 
-    return render_template('admin/create_week.html', timezone='America/Chicago')
+    return render_template('admin/create_week.html', timezone=POOL_TZ_NAME)
 
 
 @admin_bp.route('/week/<int:week_id>/activate', methods=['POST'])
@@ -191,9 +186,11 @@ def mark_results(week_id):
         week.is_complete = True
         db.session.commit()
 
-        process_week_results(week_id)
-
-        flash(f'Results for Week {week.week_number} have been recorded!', 'success')
+        result = process_week_results(week_id)
+        if result.get("success"):
+            flash(f'Results for Week {week.week_number} have been recorded!', 'success')
+        else:
+            flash(f'Results saved but processing failed: {result.get("error")}', 'error')
         return redirect(url_for('admin.dashboard'))
 
     return render_template('admin/mark_results.html', week=week, games=games)
@@ -269,7 +266,9 @@ def payments():
 @admin_required
 def update_payment(user_id):
     user = db.get_or_404(User, user_id)
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'success': False, 'error': 'Invalid request body'}), 400
     has_paid = data.get('has_paid', False)
     user.has_paid = has_paid
     db.session.commit()
@@ -376,26 +375,24 @@ def confirm_scores(week_id):
     games = Game.query.filter_by(week_id=week_id).all()
 
     updated = 0
+    parse_errors = []
     for game in games:
         home_score_key = f'home_score_{game.id}'
         away_score_key = f'away_score_{game.id}'
         winner_key = f'winner_{game.id}'
 
-        home_score = request.form.get(home_score_key)
-        away_score = request.form.get(away_score_key)
         winner = request.form.get(winner_key)
 
-        if home_score is not None and home_score != '':
-            try:
-                game.home_score = int(home_score)
-            except ValueError:
-                pass
-
-        if away_score is not None and away_score != '':
-            try:
-                game.away_score = int(away_score)
-            except ValueError:
-                pass
+        for field, form_key, label in [
+            ('home_score', home_score_key, game.get_home_team_display()),
+            ('away_score', away_score_key, game.get_away_team_display()),
+        ]:
+            value = request.form.get(form_key, '').strip()
+            if value:
+                try:
+                    setattr(game, field, int(value))
+                except ValueError:
+                    parse_errors.append(f'Invalid score "{value}" for {label}')
 
         if winner == 'home':
             game.home_team_won = True
@@ -404,6 +401,11 @@ def confirm_scores(week_id):
             game.home_team_won = False
             updated += 1
 
+    if parse_errors:
+        for err in parse_errors:
+            flash(err, 'error')
+        return redirect(url_for('admin.fetch_scores', week_id=week_id))
+
     db.session.commit()
 
     # Check if all games are decided
@@ -411,8 +413,11 @@ def confirm_scores(week_id):
     if all_decided:
         week.is_complete = True
         db.session.commit()
-        process_week_results(week_id)
-        flash(f'All {updated} game scores confirmed and results processed!', 'success')
+        result = process_week_results(week_id)
+        if result.get("success"):
+            flash(f'All {updated} game scores confirmed and results processed!', 'success')
+        else:
+            flash(f'Scores saved but result processing failed: {result.get("error")}', 'error')
     else:
         pending = sum(1 for g in games if g.home_team_won is None)
         flash(f'{updated} game scores confirmed. {pending} games still pending.', 'warning')

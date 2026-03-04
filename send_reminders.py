@@ -34,8 +34,8 @@ def current_week():
     """Return the active week with a timezone-aware deadline."""
     with app.app_context():
         week = Week.query.filter_by(is_active=True).first()
-        if week and week.deadline.tzinfo is None:
-            week.deadline = week.deadline.replace(tzinfo=CHICAGO)
+        if week:
+            week._aware_deadline = week.deadline.replace(tzinfo=CHICAGO) if week.deadline else None
         return week
 
 
@@ -92,15 +92,15 @@ def main():
         print("No active week found")
         return
 
-    if now > week.deadline:
+    if now > week._aware_deadline:
         print(f"Deadline for Week {week.week_number} has passed")
         return
 
-    if weekday == 4 and week.deadline.weekday() != 5:
+    if weekday == 4 and week._aware_deadline.weekday() != 5:
         print("Friday but deadline is not Saturday")
         return
 
-    if weekday == 5 and week.deadline.date() != now.date():
+    if weekday == 5 and week._aware_deadline.date() != now.date():
         print("Saturday but deadline is not today")
         return
 
@@ -109,7 +109,7 @@ def main():
         print(f"All users have picks for Week {week.week_number}")
         return
 
-    hours_left = int((week.deadline - now).total_seconds() // 3600)
+    hours_left = int((week._aware_deadline - now).total_seconds() // 3600)
     reminder_type = "25-hour" if weekday == 4 else "1-hour FINAL"
 
     with app.app_context():
@@ -124,7 +124,7 @@ def main():
 
 You still need to make your Week {week.week_number} pick!
 
-Deadline: {week.deadline.strftime('%A at %I:%M %p %Z')}
+Deadline: {week._aware_deadline.strftime('%A at %I:%M %p %Z')}
 Time remaining: {hours_left} hour(s)
 
 Make your pick now: {pool_url}/pick/{week.week_number}

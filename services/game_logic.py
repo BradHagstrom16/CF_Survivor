@@ -51,58 +51,80 @@ def get_used_team_ids(user_id, week, *, exclude_current=True):
 # ---------------------------------------------------------------------------
 
 def process_week_results(week_id):
-    """Process pick results and update user lives. Includes revival rule."""
+    """Process pick results and update user lives. Includes revival rule.
+
+    Returns dict with 'success' bool and details.
+    """
     week = db.session.get(Week, week_id)
-    picks = Pick.query.filter_by(week_id=week_id).all()
+    if not week:
+        logger.error("process_week_results: Week %s not found", week_id)
+        return {"success": False, "error": f"Week {week_id} not found"}
 
-    # Track active users who had 1 life at START of week (for revival rule)
-    active_users = User.query.filter_by(is_eliminated=False).all()
-    active_user_ids = {user.id for user in active_users}
-    users_with_one_life_before = [
-        user.id for user in active_users if user.lives_remaining == 1
-    ]
+    try:
+        picks = Pick.query.filter_by(week_id=week_id).all()
 
-    for pick in picks:
-        game = Game.query.filter_by(week_id=week_id).filter(
-            db.or_(
-                Game.home_team_id == pick.team_id,
-                Game.away_team_id == pick.team_id,
-            ),
+        # Track active users who had 1 life at START of week (for revival rule)
+        active_users = User.query.filter_by(is_eliminated=False).all()
+        users_with_one_life_before = [
+            user.id for user in active_users if user.lives_remaining == 1
+        ]
+
+        # Bulk-load decided games into a team-keyed lookup to avoid N queries
+        decided_games = Game.query.filter(
+            Game.week_id == week_id,
             Game.home_team_won != None,  # noqa: E711
-        ).first()
-
-        if game:
-            if pick.team_id == game.home_team_id:
-                pick.is_correct = game.home_team_won
-            else:
-                pick.is_correct = not game.home_team_won
-
-            if not pick.is_correct:
-                user = pick.user
-                user.lives_remaining -= 1
-                if user.lives_remaining <= 0:
-                    user.is_eliminated = True
-                    user.lives_remaining = 0
-
-        pick.user.calculate_cumulative_spread()
-
-    db.session.commit()
-
-    # Revival rule: if ALL users who had 1 life before this week lost, revive them
-    if users_with_one_life_before:
-        one_lifers = User.query.filter(
-            User.id.in_(users_with_one_life_before)
         ).all()
-        if all(u.lives_remaining == 0 for u in one_lifers):
-            for user in one_lifers:
-                user.lives_remaining = 1
-                user.is_eliminated = False
-            db.session.commit()
-            logger.info(
-                "REVIVAL RULE ACTIVATED: Week %s - %d users revived",
-                week.week_number,
-                len(one_lifers),
-            )
+        games_by_team = {}
+        for game in decided_games:
+            if game.home_team_id:
+                games_by_team[game.home_team_id] = game
+            if game.away_team_id:
+                games_by_team[game.away_team_id] = game
+
+        for pick in picks:
+            game = games_by_team.get(pick.team_id)
+
+            if game:
+                pick.is_correct = (
+                    game.home_team_won if pick.team_id == game.home_team_id
+                    else not game.home_team_won
+                )
+
+                if not pick.is_correct:
+                    user = pick.user
+                    user.lives_remaining -= 1
+                    if user.lives_remaining <= 0:
+                        user.is_eliminated = True
+                        user.lives_remaining = 0
+
+            pick.user.calculate_cumulative_spread()
+
+        db.session.commit()
+
+        # Revival rule: if ALL users who had 1 life before this week lost, revive them
+        revived = 0
+        if users_with_one_life_before:
+            one_lifers = User.query.filter(
+                User.id.in_(users_with_one_life_before)
+            ).all()
+            if all(u.lives_remaining == 0 for u in one_lifers):
+                for user in one_lifers:
+                    user.lives_remaining = 1
+                    user.is_eliminated = False
+                db.session.commit()
+                revived = len(one_lifers)
+                logger.info(
+                    "REVIVAL RULE ACTIVATED: Week %s - %d users revived",
+                    week.week_number,
+                    revived,
+                )
+
+        return {"success": True, "processed": len(picks), "revived": revived}
+
+    except Exception:
+        db.session.rollback()
+        logger.exception("process_week_results failed for week %s", week_id)
+        return {"success": False, "error": "Database error during result processing"}
 
 
 # ---------------------------------------------------------------------------

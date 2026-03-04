@@ -63,7 +63,7 @@ class NCAAFootballAPIImporter:
         print(f"\nFetching games from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
 
         try:
-            response = requests.get(self.base_url, params=params)
+            response = requests.get(self.base_url, params=params, timeout=30)
             if response.status_code == 200:
                 games = response.json()
                 remaining = response.headers.get('x-requests-remaining', 'unknown')
@@ -93,7 +93,7 @@ class NCAAFootballAPIImporter:
             'oddsFormat': 'american',
         }
         try:
-            response = requests.get(self.championship_url, params=params)
+            response = requests.get(self.championship_url, params=params, timeout=30)
         except Exception as exc:
             print(f"Error fetching championship odds: {exc}")
             return {}, None

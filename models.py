@@ -141,6 +141,8 @@ class Game(db.Model):
 
     def get_spread_for_team(self, team_id):
         """Return spread from team's perspective (negative = favored)."""
+        if self.home_team_spread is None:
+            return None
         if team_id == self.home_team_id:
             return self.home_team_spread
         return -self.home_team_spread
