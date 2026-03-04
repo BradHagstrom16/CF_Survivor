@@ -11,7 +11,7 @@ import click
 from flask import Flask, render_template
 
 from config import config
-from extensions import db, login_manager, csrf, limiter
+from extensions import db, login_manager, csrf, limiter, migrate
 from db_maintenance import (
     ensure_team_national_title_odds_column,
     ensure_user_is_admin_column,
@@ -36,6 +36,7 @@ def create_app(config_name=None):
 
     # ── Extensions ───────────────────────────────────────────────────────
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
     limiter.init_app(app)

@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Available Tools & Plugins
+
+The following Claude Code plugins are installed and enabled. Use them proactively to enhance development workflows and code quality rather than relying solely on training knowledge:
+
+- **claude-code-setup** - Environment and project setup management
+- **claude-md-management** - Markdown file handling and organization
+- **code-review** - Automated code review and quality checks
+- **code-simplifier** - Code refactoring and simplification
+- **coderabbit** - AI-powered code analysis
+- **commit-commands** - Git commit management and automation
+- **context7** - Enhanced contextual awareness (includes MCP)
+- **feature-dev** - Feature development workflows
+- **frontend-design** - UI/UX design and styling assistance
+- **playwright** - Browser automation and testing (includes MCP)
+- **pr-review-toolkit** - Pull request review utilities
+- **pyright-lsp** - Python language server and type checking
+- **superpowers** - Advanced development capabilities
+
 ## Project Overview
 
 CF Survivor Pool is a college football survivor pool web app. Players pick one team per week to win against the spread. Two lives, cumulative spread tiebreaker, single-use teams per regular season (resets for CFP), and full College Football Playoff support. Deployed on PythonAnywhere with SQLite.
@@ -37,18 +55,36 @@ python import_games.py       # Interactive game import from The Odds API
 
 No test suite exists. No linter is configured.
 
+## Database Migrations
+
+```bash
+# Generate a new migration after changing models
+flask db migrate -m "description of change"
+
+# Apply pending migrations
+flask db upgrade
+
+# Rollback one migration
+flask db downgrade
+
+# Show current migration version
+flask db current
+```
+
+**Important:** After any change to `models.py`, always run `flask db migrate` to generate a migration, review it, then `flask db upgrade` to apply it. Never use raw SQL to modify the schema.
+
 ## Architecture
 
 **Flask app factory** (`create_app()` in `app.py`) with blueprints and a services layer:
 
 - `app.py` — App factory, extensions init, CLI commands, error handlers. Entry point.
 - `models.py` — SQLAlchemy models: `User`, `Team`, `Week`, `Game`, `Pick`.
-- `extensions.py` — Centralized extension instances: `db`, `login_manager`, `csrf`, `limiter`.
+- `extensions.py` — Centralized extension instances: `db`, `login_manager`, `csrf`, `limiter`, `migrate`.
 - `config.py` — Environment-based config classes (`development`/`production`/`testing`). `ENVIRONMENT` env var selects config.
 - `constants.py` — Re-exports from `fbs_master_teams.py`; `SPORT_KEY`, `API_BASE_URL`, `SEASON_SCHEDULE`.
 - `timezone_utils.py` — All timezone helpers: `POOL_TZ`, `deadline_has_passed()`, `make_aware()`, `to_pool_time()`.
 - `display_utils.py` — Week display names, CFP team helpers, template context injection.
-- `db_maintenance.py` — Idempotent schema migration helpers using raw SQL (no Alembic — single-developer SQLite simplicity).
+- `db_maintenance.py` — Legacy schema migration helpers using raw SQL (kept for reference; Alembic now manages schema changes).
 
 **Routes (blueprints):**
 - `routes/auth.py` — Login, register, logout, change password.
