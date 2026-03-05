@@ -15,7 +15,7 @@ from sqlalchemy import func
 from extensions import db
 from models import User, Team, Week, Game, Pick
 from constants import FBS_MASTER_TEAMS, TEAM_CONFERENCES
-from timezone_utils import get_current_time, format_deadline, make_aware, parse_form_datetime, POOL_TZ_NAME
+from timezone_utils import get_current_time, make_aware, parse_form_datetime
 from services.game_logic import process_week_results, process_autopicks
 
 logger = logging.getLogger(__name__)
@@ -54,8 +54,6 @@ def dashboard():
         total_users=total_users,
         active_users=active_users,
         current_time=current_time,
-        timezone=POOL_TZ_NAME,
-        format_deadline=format_deadline,
     )
 
 
@@ -99,7 +97,7 @@ def create_week():
         flash(f'{display_name} created successfully!', 'success')
         return redirect(url_for('admin.dashboard'))
 
-    return render_template('admin/create_week.html', timezone=POOL_TZ_NAME)
+    return render_template('admin/create_week.html')
 
 
 @admin_bp.route('/week/<int:week_id>/activate', methods=['POST'])

@@ -15,7 +15,7 @@ from models import User, Team, Week, Game, Pick
 from constants import TEAM_CONFERENCES
 from timezone_utils import (
     get_current_time, get_utc_time, make_aware, deadline_has_passed,
-    format_deadline, to_pool_time, safe_is_after, POOL_TZ_NAME,
+    to_pool_time, safe_is_after,
 )
 from display_utils import (
     get_week_display_name, get_week_short_label, is_week_playoff,
@@ -118,8 +118,6 @@ def index():
         eliminated_users=eliminated_users,
         week_picks=week_picks,
         show_picks=show_picks,
-        format_deadline=format_deadline,
-        timezone=POOL_TZ_NAME,
         champion_picks=champion_picks,
         champion_correct=champion_correct,
         weeks_played=weeks_played,
@@ -256,7 +254,6 @@ def make_pick(week_number):
         games=games,
         eligible_teams=eligible_teams,
         existing_pick=existing_pick,
-        format_deadline=format_deadline,
         current_time=current_time,
         pick_locked=pick_locked,
         team_spreads=team_spreads,
@@ -536,6 +533,10 @@ def weekly_results(week_number=None):
             (p for p in picks if p.user_id == current_user.id), None
         )
 
+    # Build pick distribution counts for template
+    from collections import Counter
+    pick_counts = Counter(pick.team.name for pick in picks)
+
     return render_template(
         'weekly_results.html',
         week=week,
@@ -548,6 +549,5 @@ def weekly_results(week_number=None):
         users_no_pick=users_no_pick,
         eliminated_this_week=eliminated_this_week,
         current_user_pick=current_user_pick,
-        format_deadline=format_deadline,
-        timezone=POOL_TZ_NAME,
+        pick_counts=pick_counts,
     )

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Manage Games - Week {{ week.week_number }}{% endblock %}
+{% block title %}Manage Games - {{ get_week_display_name(week) }}{% endblock %}
 
 {% block content %}
-<h2>Manage Games &mdash; Week {{ week.week_number }}</h2>
+<h2>Manage Games &mdash; {{ get_week_display_name(week) }}</h2>
 
 <div class="row">
     <div class="col-lg-7">

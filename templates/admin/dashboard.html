@@ -36,7 +36,7 @@
                     <tbody>
                         {% for week in weeks %}
                         <tr>
-                            <td><strong>Week {{ week.week_number }}</strong></td>
+                            <td><strong>{{ get_week_display_name(week) }}</strong></td>
                             <td>{{ week.start_date.strftime('%m/%d/%Y') }}</td>
                             <td>{{ format_deadline(week.deadline) }}</td>
                             <td>
@@ -93,7 +93,7 @@
                         {% if week._aware_deadline < current_time %}
                             <div class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <strong>Week {{ week.week_number }}</strong>
+                                    <strong>{{ get_week_display_name(week) }}</strong>
                                     <small style="color: var(--text-muted);">
                                         Deadline: {{ format_deadline(week.deadline) }}
                                     </small>

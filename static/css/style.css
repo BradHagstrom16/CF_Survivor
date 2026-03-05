@@ -396,9 +396,14 @@ hr {
 }
 
 .btn-info {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: #000;
+  background: #17a2b8;
+  border-color: #17a2b8;
+  color: #fff;
+}
+.btn-info:hover, .btn-info:focus {
+  background: #138496;
+  border-color: #117a8b;
+  color: #fff;
 }
 
 .btn-outline-primary {
@@ -544,7 +549,7 @@ hr {
 .text-success { color: var(--status-alive) !important; }
 .text-danger { color: var(--status-eliminated) !important; }
 .text-warning { color: var(--color-accent) !important; }
-.text-info { color: var(--color-accent) !important; }
+.text-info { color: #17a2b8 !important; }
 .text-white { color: var(--text-primary) !important; }
 .text-white-50 { color: var(--text-muted) !important; }
 
@@ -843,9 +848,12 @@ hr {
   width: 3rem;
 }
 
-.standings-table tbody .rank-cell.rank-1 { color: var(--color-accent); }
-.standings-table tbody .rank-cell.rank-2 { color: #b0b0b0; }
-.standings-table tbody .rank-cell.rank-3 { color: #cd7f32; }
+.standings-table tbody .rank-cell.rank-1,
+.rank-1 { color: var(--color-accent); }
+.standings-table tbody .rank-cell.rank-2,
+.rank-2 { color: #b0b0b0; }
+.standings-table tbody .rank-cell.rank-3,
+.rank-3 { color: #cd7f32; }
 
 .current-week-box {
   background: var(--bg-surface);
@@ -1067,14 +1075,6 @@ hr {
   font-weight: 700;
   color: var(--color-accent);
   text-shadow: 0 0 8px rgba(212, 168, 67, 0.2);
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-top: 0.25rem;
 }
 
 .prize-pool-badge {

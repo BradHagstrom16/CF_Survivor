@@ -3,7 +3,7 @@
 {% block title %}{{ get_week_display_name(week) }} Results - CFB Survivor Pool{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div>
     <h2>{{ get_week_display_name(week) }} Results</h2>
 
     <!-- Week Navigation — horizontal scroll -->
@@ -239,17 +239,7 @@
         </div>
         <div class="card-body">
             <div class="row g-2">
-                {% set pick_counts = {} %}
-                {% for pick in picks %}
-                    {% set team_name = pick.team.name %}
-                    {% if team_name in pick_counts %}
-                        {% set _ = pick_counts.update({team_name: pick_counts[team_name] + 1}) %}
-                    {% else %}
-                        {% set _ = pick_counts.update({team_name: 1}) %}
-                    {% endif %}
-                {% endfor %}
-
-                {% for team, count in pick_counts.items() | sort(attribute=1, reverse=True) %}
+                {% for team, count in pick_counts.most_common() %}
                 <div class="col-6 col-md-3">
                     <div style="background: var(--bg-surface-alt); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 0.85rem;">{{ team }}</span>

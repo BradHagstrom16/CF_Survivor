@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Mark Results - Week {{ week.week_number }}{% endblock %}
+{% block title %}Mark Results - {{ get_week_display_name(week) }}{% endblock %}
 
 {% block content %}
-<h2>Mark Results &mdash; Week {{ week.week_number }}</h2>
+<h2>Mark Results &mdash; {{ get_week_display_name(week) }}</h2>
 
 <div class="card">
     <div class="card-header" style="border-left: 4px solid var(--status-warning);">

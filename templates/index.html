@@ -291,7 +291,7 @@
             <div class="mobile-card {% if current_user.is_authenticated and user.id == current_user.id %}card-current-user{% endif %}">
                 <div class="mc-header">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="scoreboard-num {% if loop.index <= 3 %}rank-{{ loop.index }}{% endif %}" style="font-size: 1.2rem; min-width: 1.5rem; {% if loop.index == 1 %}color: var(--color-accent);{% elif loop.index == 2 %}color: #b0b0b0;{% elif loop.index == 3 %}color: #cd7f32;{% endif %}">{{ loop.index }}</span>
+                        <span class="scoreboard-num {% if loop.index <= 3 %}rank-{{ loop.index }}{% endif %}" style="font-size: 1.2rem; min-width: 1.5rem;">{{ loop.index }}</span>
                         <strong>{{ user.display_name }}</strong>
                     </div>
                     <span class="lives-pips">
