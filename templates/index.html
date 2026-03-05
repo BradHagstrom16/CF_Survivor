@@ -4,47 +4,46 @@
 
 <!-- CHAMPIONSHIP PAGE - Displayed when only 1 survivor remains -->
 {% if users|length == 1 and eliminated_users|length > 0 %}
-<!-- Championship Banner -->
 <div class="championship-banner">
-    <div class="trophy-icon">🏆</div>
-    <div class="season-complete">🎉 2024-25 Season Complete! 🎉</div>
+    <div class="trophy-icon">&#127942;</div>
+    <div class="season-complete">2024-25 Season Complete</div>
     <div class="champion-name">{{ users[0].display_name }}</div>
-    <h2 style="margin: 1rem 0;">is your CFB Survivor Pool Champion!</h2>
-    
+    <h2 style="margin: 1rem 0; color: var(--text-secondary);">CFB Survivor Pool Champion</h2>
+
     <div class="prize-pool-badge">
-        Winner Takes Home: ${{ prize_pool }} 💰
+        Winner: ${{ prize_pool }}
     </div>
-    
-    <p style="font-size: 1.2rem; margin-top: 2rem; opacity: 0.9;">
-        Outlasting {{ eliminated_users|length }} other competitors through weeks of intense college football action!
+
+    <p style="font-size: 1.1rem; margin-top: 1.5rem; color: var(--text-secondary);">
+        Outlasting {{ eliminated_users|length }} competitors through weeks of college football action.
     </p>
 </div>
 
 <div class="row">
-    <div class="col-md-8">
+    <div class="col-lg-8">
         <!-- Champion's Stats -->
         <div class="champion-stats-card">
-            <h3 class="text-center mb-4">🌟 Champion's Final Stats 🌟</h3>
-            <div class="row">
-                <div class="col-md-3 col-6 mb-3">
+            <h3 class="text-center mb-4">Champion's Final Stats</h3>
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
                     <div class="stat-box">
                         <div class="stat-number">{{ users[0].lives_remaining }}</div>
                         <div class="stat-label">Lives Remaining</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-6 mb-3">
+                <div class="col-6 col-md-3">
                     <div class="stat-box">
                         <div class="stat-number">{{ champion_picks|length }}</div>
                         <div class="stat-label">Total Picks</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-6 mb-3">
+                <div class="col-6 col-md-3">
                     <div class="stat-box">
                         <div class="stat-number">{{ champion_correct }}</div>
                         <div class="stat-label">Correct Picks</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-6 mb-3">
+                <div class="col-6 col-md-3">
                     <div class="stat-box">
                         <div class="stat-number">{{ "%.1f"|format(users[0].cumulative_spread) }}</div>
                         <div class="stat-label">Final Spread</div>
@@ -56,10 +55,11 @@
         <!-- Champion's Journey -->
         {% if champion_picks %}
         <div class="journey-timeline">
-            <h3 class="mb-4">📜 Championship Journey</h3>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-dark">
+            <h3 class="mb-4">Championship Journey</h3>
+            <!-- Desktop table -->
+            <div class="d-none d-md-block">
+                <table class="table">
+                    <thead>
                         <tr>
                             <th>Week</th>
                             <th>Team Picked</th>
@@ -69,29 +69,29 @@
                     </thead>
                     <tbody>
                         {% for pick in champion_picks %}
-                        <tr class="{% if pick.is_correct == False %}table-danger{% elif pick.is_correct == True %}table-success{% endif %}">
+                        <tr class="{% if pick.is_correct == False %}row-incorrect{% elif pick.is_correct == True %}row-correct{% endif %}">
                             <td><strong>{{ get_week_display_name(pick.week) }}</strong></td>
                             <td>{{ pick.team.name }}</td>
                             <td>
                                 {% if pick.spread %}
                                     {% if pick.spread < 0 %}
-                                        <span class="badge bg-success">{{ pick.spread }}</span>
+                                        <span class="spread-value spread-fav">{{ pick.spread }}</span>
                                     {% elif pick.spread > 0 %}
-                                        <span class="badge bg-warning">+{{ pick.spread }}</span>
+                                        <span class="spread-value spread-dog">+{{ pick.spread }}</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">PK</span>
+                                        <span class="spread-value">PK</span>
                                     {% endif %}
                                 {% else %}
-                                    -
+                                    <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if pick.is_correct == True %}
-                                    <span class="badge bg-success">✓ Won</span>
+                                    <span class="status-badge status-won">W</span>
                                 {% elif pick.is_correct == False %}
-                                    <span class="badge bg-danger">✗ Lost</span>
+                                    <span class="status-badge status-lost">L</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">Pending</span>
+                                    <span class="status-badge status-pending">--</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -99,56 +99,67 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-        {% endif %}
-
-        <!-- Hall of Competitors -->
-        <div class="eliminated-section">
-            <h3 class="mb-3">⚔️ Fallen Warriors - Hall of Competitors</h3>
-            <p class="text-muted mb-3">These brave souls fought valiantly but fell along the way:</p>
-            <div class="row">
-                {% for user in eliminated_users | sort(attribute='display_name') %}
-                <div class="col-md-3 col-sm-4 col-6 mb-2">
-                    <div class="badge bg-secondary w-100 p-2" style="font-size: 0.9rem;">
-                        {{ user.display_name }}
+            <!-- Mobile cards -->
+            <div class="d-md-none">
+                {% for pick in champion_picks %}
+                <div class="mobile-card {% if pick.is_correct == True %}card-correct{% elif pick.is_correct == False %}card-incorrect{% endif %}">
+                    <div class="mc-header">
+                        <span class="mc-player">{{ pick.team.name }}</span>
+                        {% if pick.is_correct == True %}
+                            <span class="status-badge status-won">W</span>
+                        {% elif pick.is_correct == False %}
+                            <span class="status-badge status-lost">L</span>
+                        {% else %}
+                            <span class="status-badge status-pending">--</span>
+                        {% endif %}
+                    </div>
+                    <div class="mc-detail">
+                        <span>{{ get_week_display_name(pick.week) }}</span>
+                        {% if pick.spread %}
+                            {% if pick.spread < 0 %}
+                                <span class="spread-value spread-fav">{{ pick.spread }}</span>
+                            {% elif pick.spread > 0 %}
+                                <span class="spread-value spread-dog">+{{ pick.spread }}</span>
+                            {% else %}
+                                <span class="spread-value">PK</span>
+                            {% endif %}
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
 
-        <!-- Thank You Message -->
+        <!-- Hall of Competitors -->
+        <div class="eliminated-section mt-3">
+            <h3 class="mb-3">Fallen Competitors</h3>
+            <div class="row g-2">
+                {% for user in eliminated_users | sort(attribute='display_name') %}
+                <div class="col-6 col-md-3">
+                    <div class="badge bg-secondary w-100 p-2">{{ user.display_name }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
         <div class="alert alert-info mt-4 text-center">
-            <h4>🙏 Thank You for Playing! 🙏</h4>
-            <p class="mb-0">
-                What an incredible season! Thanks to all {{ users|length + eliminated_users|length }} participants 
-                for making this survivor pool unforgettable. See you next season!
+            <h5 class="mb-1" style="font-family: var(--font-display); text-transform: uppercase;">Season Complete</h5>
+            <p class="mb-0" style="color: var(--text-secondary);">
+                Thanks to all {{ users|length + eliminated_users|length }} participants. See you next season.
             </p>
         </div>
     </div>
-    
-    <div class="col-md-4">
-        <h3>Season Summary</h3>
+
+    <div class="col-lg-4">
         <div class="card">
+            <div class="card-header"><h4 class="mb-0">Season Summary</h4></div>
             <div class="card-body">
-                <h5 class="card-title">🏈 Final Statistics</h5>
-                <ul class="list-unstyled">
-                    <li class="mb-2"><strong>Total Participants:</strong> {{ users|length + eliminated_users|length }}</li>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><strong>Participants:</strong> {{ users|length + eliminated_users|length }}</li>
                     <li class="mb-2"><strong>Prize Pool:</strong> ${{ prize_pool }}</li>
                     <li class="mb-2"><strong>Weeks Played:</strong> {{ weeks_played }}</li>
-                    <li class="mb-2"><strong>Champion:</strong> <span class="final-standings-badge">{{ users[0].display_name }}</span></li>
-                </ul>
-                
-                <hr>
-                
-                <h6>Pool Rules Recap:</h6>
-                <ul class="small">
-                    <li>Pick one team each week to win</li>
-                    <li>Each team can only be picked ONCE all season</li>
-                    <li>If your team loses, you lose a life</li>
-                    <li>Each player gets 2 lives total</li>
-                    <li>Teams favored by 16.5+ points are not eligible</li>
-                    <li>Last survivor wins!</li>
+                    <li><strong>Champion:</strong> <span class="final-standings-badge">{{ users[0].display_name }}</span></li>
                 </ul>
             </div>
         </div>
@@ -156,160 +167,196 @@
 </div>
 
 {% else %}
-<!-- REGULAR STANDINGS PAGE (when pool is still active) -->
+<!-- REGULAR STANDINGS PAGE -->
 <div class="row">
-    <div class="col-md-8">
+    <div class="col-lg-8">
         {% if not current_user.is_authenticated %}
-        <div class="text-center mb-3">
+        <div class="text-center mb-4">
             <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg me-2">Login</a>
-            <a href="{{ url_for('auth.register') }}" class="btn btn-success btn-lg">Register</a>
-            <p class="mt-2 text-muted">Login or register to make your picks!</p>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-warning btn-lg">Register</a>
+            <p class="mt-2" style="color: var(--text-muted);">Login or register to make your picks.</p>
         </div>
         {% endif %}
-        <h1>Survivor Pool Standings</h1>
-        
-       {% if current_week %}
-    <!-- CFP Banner (if in playoff mode) -->
-    {% if is_week_playoff(current_week) %}
-    <div class="alert alert-danger">
-        <h5>🏈 COLLEGE FOOTBALL PLAYOFF 🏆</h5>
-        <p class="mb-0">All teams have been reset! You can pick any of the 12 playoff teams, even if you used them in the regular season.</p>
-    </div>
-    {% endif %}
-    
-    <div class="alert alert-info">
-        <h5>Current Week: {{ get_week_display_name(current_week) }}</h5>
-        <p>Deadline: {{ format_deadline(current_week.deadline) }}</p>
-        
-        {% if current_user.is_authenticated %}
-            {% if current_user.is_eliminated %}
-                <div class="alert alert-danger mb-0">
-                    <strong>You have been eliminated from the pool.</strong>
-                </div>
-            {% elif user_pick %}
-                <div class="alert alert-success mb-2">
-                    <strong>Your {{ get_week_display_name(current_week) }} Pick: {{ user_pick.team.name }}</strong>
-                </div>
-                <a href="{{ url_for('main.make_pick', week_number=current_week.week_number) }}" 
-                   class="btn btn-warning">Change Your Pick</a>
-            {% else %}
-                <a href="{{ url_for('main.make_pick', week_number=current_week.week_number) }}" 
-                   class="btn btn-primary">Make Your Pick</a>
-            {% endif %}
-        {% endif %}
-    </div>
-{% endif %}
-        
- <!-- Active Players Table -->
-<h3>Active Players</h3>
-<div class="table-responsive">
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Rank</th>
-            <th>Player</th>
-            <th>Lives Remaining</th>
-            <th>Cumulative Spread</th>
-            {% if current_week %}
-            <th>{{ get_week_display_name(current_week) }} Pick</th>
-            {% endif %}
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
-        <tr {% if current_user.is_authenticated and user.id == current_user.id %}class="table-info"{% endif %}>
-            <td>
-                <strong>{{ loop.index }}</strong>
-                {% if loop.index == 1 %}
-                    🏆
-                {% elif loop.index == 2 %}
-                    🥈
-                {% elif loop.index == 3 %}
-                    🥉
-                {% endif %}
-            </td>
-            <td>
-                <strong>{{ user.display_name }}</strong>
-            </td>
-            <td>
-                {% for i in range(user.lives_remaining) %}
-                    ❤️
-                {% endfor %}
-                {% for i in range(2 - user.lives_remaining) %}
-                    🖤
-                {% endfor %}
-            </td>
-            <td>
-                <span class="badge bg-primary">{{ "%.1f"|format(user.cumulative_spread) }}</span>
-            </td>
-            {% if current_week %}
-            <td>
-                {% if show_picks %}
-                    {% if user.id in week_picks %}
-                        <strong>{{ week_picks[user.id] }}</strong>
-                    {% else %}
-                        <span class="text-muted">No Pick</span>
-                    {% endif %}
-                {% else %}
-                    <span class="text-muted">
-                        <em>Hidden until deadline</em>
-                    </span>
-                {% endif %}
-            </td>
-            {% endif %}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
 
-<!-- Add explanation of tiebreakers -->
-<div class="alert alert-info mt-3">
-    <h6>🏁 Tiebreaker Rules:</h6>
-    <ol class="mb-0">
-        <li><strong>Lives Remaining:</strong> Two lives is better than one</li>
-        <li><strong>Cumulative Spread:</strong> Lower is better
-            <ul>
-                <li>Picking favorites adds to your total (e.g., -7 spread adds +7)</li>
-                <li>Picking underdogs subtracts from your total (e.g., +3 spread subtracts 3)</li>
-                <li>Rewards taking calculated risks!</li>
-            </ul>
-        </li>
-    </ol>
-</div>
-        
-        <!-- Eliminated Players Table -->
+        <h1>Standings</h1>
+
+        {% if current_week %}
+            <!-- CFP Banner -->
+            {% if is_week_playoff(current_week) %}
+            <div class="cfp-banner mb-3">
+                <h5 class="mb-1" style="color: var(--color-primary);">College Football Playoff</h5>
+                <p class="mb-0" style="color: var(--text-secondary);">All teams reset. Pick any of the 12 playoff teams, even if used in regular season.</p>
+            </div>
+            {% endif %}
+
+            <!-- Current Week Info -->
+            <div class="current-week-box">
+                <h5>{{ get_week_display_name(current_week) }}</h5>
+                <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+                    Deadline: {{ format_deadline(current_week.deadline) }}
+                </p>
+
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_eliminated %}
+                        <div class="alert alert-danger mb-0" style="margin-top: 0.5rem;">
+                            <strong>You have been eliminated from the pool.</strong>
+                        </div>
+                    {% elif user_pick %}
+                        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                            <div>
+                                <span style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Your Pick:</span>
+                                <strong style="font-family: var(--font-display); font-size: 1.3rem; margin-left: 0.5rem;">{{ user_pick.team.name }}</strong>
+                                {% if user_pick_spread is not none %}
+                                    <span class="scoreboard-pill ms-2" style="font-size: 0.9rem;">
+                                        {% if user_pick_spread < 0 %}
+                                            <span class="spread-value spread-fav">{{ "%+.1f"|format(user_pick_spread) }}</span>
+                                        {% else %}
+                                            <span class="spread-value spread-dog">{{ "%+.1f"|format(user_pick_spread) }}</span>
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <a href="{{ url_for('main.make_pick', week_number=current_week.week_number) }}"
+                               class="btn btn-warning btn-sm">Change Pick</a>
+                        </div>
+                    {% else %}
+                        <a href="{{ url_for('main.make_pick', week_number=current_week.week_number) }}"
+                           class="btn btn-primary">Make Your Pick</a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <!-- Active Players — Desktop Table -->
+        <h3 class="mt-4 mb-3">Active Players</h3>
+        <div class="d-none d-md-block">
+            <div class="card">
+                <div class="card-body p-0">
+                    <table class="table standings-table mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 3rem;">#</th>
+                                <th>Player</th>
+                                <th>Lives</th>
+                                <th>Spread</th>
+                                {% if current_week %}
+                                <th>{{ get_week_short_label(current_week) }} Pick</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr class="{% if current_user.is_authenticated and user.id == current_user.id %}row-current-user{% endif %}">
+                                <td class="rank-cell {% if loop.index <= 3 %}rank-{{ loop.index }}{% endif %}">
+                                    {{ loop.index }}
+                                </td>
+                                <td><strong>{{ user.display_name }}</strong></td>
+                                <td>
+                                    <span class="lives-pips">
+                                        {% for i in range(user.lives_remaining) %}
+                                            <span class="life-pip alive"></span>
+                                        {% endfor %}
+                                        {% for i in range(2 - user.lives_remaining) %}
+                                            <span class="life-pip lost"></span>
+                                        {% endfor %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="scoreboard-pill">{{ "%.1f"|format(user.cumulative_spread) }}</span>
+                                </td>
+                                {% if current_week %}
+                                <td>
+                                    {% if show_picks %}
+                                        {% if user.id in week_picks %}
+                                            <strong>{{ week_picks[user.id] }}</strong>
+                                        {% else %}
+                                            <span style="color: var(--text-muted);">No Pick</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span style="color: var(--text-muted); font-style: italic;">Hidden until deadline</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Players — Mobile Cards -->
+        <div class="d-md-none">
+            {% for user in users %}
+            <div class="mobile-card {% if current_user.is_authenticated and user.id == current_user.id %}card-current-user{% endif %}">
+                <div class="mc-header">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="scoreboard-num {% if loop.index <= 3 %}rank-{{ loop.index }}{% endif %}" style="font-size: 1.2rem; min-width: 1.5rem; {% if loop.index == 1 %}color: var(--color-accent);{% elif loop.index == 2 %}color: #b0b0b0;{% elif loop.index == 3 %}color: #cd7f32;{% endif %}">{{ loop.index }}</span>
+                        <strong>{{ user.display_name }}</strong>
+                    </div>
+                    <span class="lives-pips">
+                        {% for i in range(user.lives_remaining) %}
+                            <span class="life-pip alive"></span>
+                        {% endfor %}
+                        {% for i in range(2 - user.lives_remaining) %}
+                            <span class="life-pip lost"></span>
+                        {% endfor %}
+                    </span>
+                </div>
+                <div class="mc-detail">
+                    <span style="color: var(--text-muted);">Spread: <span class="scoreboard-pill" style="font-size: 0.85rem; padding: 0.1rem 0.4rem;">{{ "%.1f"|format(user.cumulative_spread) }}</span></span>
+                    {% if current_week %}
+                        {% if show_picks %}
+                            {% if user.id in week_picks %}
+                                <span style="font-size: 0.85rem;"><strong>{{ week_picks[user.id] }}</strong></span>
+                            {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.85rem;">No Pick</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Hidden</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Tiebreaker Rules -->
+        <div class="alert alert-info mt-3">
+            <h6 class="mb-2" style="font-family: var(--font-display); text-transform: uppercase;">Tiebreaker Rules</h6>
+            <ol class="mb-0 small" style="color: var(--text-secondary);">
+                <li><strong style="color: var(--text-primary);">Lives Remaining:</strong> Two lives is better than one</li>
+                <li><strong style="color: var(--text-primary);">Cumulative Spread:</strong> Lower is better &mdash; picking favorites adds points, underdogs subtract</li>
+            </ol>
+        </div>
+
+        <!-- Eliminated Players -->
         {% if eliminated_users %}
-        <h3>Eliminated Players</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Player</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="eliminated-section mt-4">
+            <h3>Eliminated Players</h3>
+            <div class="row g-2 mt-2">
                 {% for user in eliminated_users %}
-                <tr>
-                    <td>{{ user.display_name }}</td>
-                </tr>
+                <div class="col-6 col-md-4">
+                    <div class="badge bg-secondary w-100 p-2">{{ user.display_name }}</div>
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div>
         {% endif %}
     </div>
-    
-    <div class="col-md-4">
-        <h3>Pool Rules</h3>
+
+    <div class="col-lg-4">
         <div class="card">
+            <div class="card-header"><h4 class="mb-0">Pool Rules</h4></div>
             <div class="card-body">
-                <ul>
+                <ul style="color: var(--text-secondary); padding-left: 1.2rem;">
                     <li>Pick one team each week to win</li>
-                    <li>You can only pick each team ONCE all season</li>
+                    <li>Each team can only be picked once per season</li>
                     <li>If your team loses, you lose a life</li>
                     <li>Each player gets 2 lives total</li>
-                    <li>Teams favored by 16.5+ points are not eligible</li>
+                    <li>Teams favored by 16.5+ points are ineligible</li>
                     <li>Last survivor wins!</li>
-                    <li>{{ total_participants }} entries x ${{ entry_fee }} = ${{ prize_pool }} pot</li>
+                    <li style="color: var(--color-accent);"><strong>{{ total_participants }} entries &times; ${{ entry_fee }} = ${{ prize_pool }} pot</strong></li>
                 </ul>
             </div>
         </div>

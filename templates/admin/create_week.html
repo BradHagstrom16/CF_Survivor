@@ -6,8 +6,8 @@
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header bg-dark text-white">
-                <h3>Create New Week</h3>
+            <div class="card-header">
+                <h3 class="mb-0">Create New Week</h3>
             </div>
             <div class="card-body">
 
@@ -15,81 +15,74 @@
     <strong>Note:</strong> All times are in {{ timezone }} timezone.
 </div>
 
-
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="mb-3">
                         <label for="week_number" class="form-label">Week Number</label>
-                        <input type="number" class="form-control" id="week_number" 
+                        <input type="number" class="form-control" id="week_number"
                                name="week_number" min="1" max="20" required>
-                        <small class="text-muted">1-15 for regular season, 16-20 for playoffs</small>
+                        <small class="form-text">1-15 for regular season, 16-20 for playoffs</small>
                     </div>
-                    
-                    <!-- PLAYOFF WEEK FIELDS -->
-                    <div class="card mb-3 bg-light">
+
+                    <!-- Playoff Week Fields -->
+                    <div class="card mb-3" style="background: var(--bg-surface-alt);">
                         <div class="card-body">
                             <h6>Special Week Options</h6>
-                            
+
                             <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="is_playoff_week" 
+                                <input class="form-check-input" type="checkbox" id="is_playoff_week"
                                        name="is_playoff_week" onchange="toggleRoundName()">
                                 <label class="form-check-label" for="is_playoff_week">
                                     <strong>This is a playoff week</strong>
                                 </label>
-                                <small class="form-text text-muted d-block">
-                                    Check this for CFP weeks (16+) - allows team reuse
+                                <small class="form-text d-block">
+                                    Check this for CFP weeks (16+) &mdash; allows team reuse
                                 </small>
                             </div>
-                            
+
                             <div class="mb-3" id="round_name_group">
                                 <label for="round_name" class="form-label">Custom Display Name</label>
-                                <input type="text" class="form-control" id="round_name" 
+                                <input type="text" class="form-control" id="round_name"
                                        name="round_name" placeholder="e.g., CFP Round 1" maxlength="100">
-                                <small class="text-muted">
-                                    Examples:<br>
-                                    • Week 15: "Conference Championship Week"<br>
-                                    • Week 16: "CFP Round 1"<br>
-                                    • Week 17: "CFP Quarterfinals"<br>
-                                    • Week 18: "CFP Semifinals"<br>
-                                    • Week 19: "CFP Championship"
+                                <small class="form-text">
+                                    Examples: "Conference Championship Week", "CFP Round 1", "CFP Quarterfinals", "CFP Championship"
                                 </small>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="start_date" class="form-label">Week Start Date/Time</label>
-                        <input type="datetime-local" class="form-control" 
+                        <input type="datetime-local" class="form-control"
                                id="start_date" name="start_date" required>
-                        <small class="text-muted">When this week officially begins</small>
+                        <small class="form-text">When this week officially begins</small>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="deadline" class="form-label">Pick Deadline</label>
-                        <input type="datetime-local" class="form-control" 
+                        <input type="datetime-local" class="form-control"
                                id="deadline" name="deadline" required>
-                        <small class="text-muted">Usually Thursday or Saturday morning</small>
+                        <small class="form-text">Usually Thursday or Saturday morning</small>
                     </div>
-                    
+
                     <button type="submit" class="btn btn-success">Create Week</button>
                     <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
-        
-        <!-- Quick Reference Card -->
+
         <div class="card mt-3">
-            <div class="card-header bg-info text-white">
-                <h6 class="mb-0">📅 Week Number Reference</h6>
+            <div class="card-header">
+                <h6 class="mb-0">Week Number Reference</h6>
             </div>
             <div class="card-body">
-                <ul class="mb-0 small">
-                    <li><strong>Weeks 1-14:</strong> Regular Season</li>
-                    <li><strong>Week 15:</strong> Conference Championships (set name to "Conference Championship Week")</li>
-                    <li><strong>Week 16:</strong> CFP Round 1 (check playoff box)</li>
-                    <li><strong>Week 17:</strong> CFP Quarterfinals (check playoff box)</li>
-                    <li><strong>Week 18:</strong> CFP Semifinals (check playoff box)</li>
-                    <li><strong>Week 19:</strong> CFP Championship (check playoff box)</li>
+                <ul class="mb-0 small" style="color: var(--text-secondary);">
+                    <li><strong style="color: var(--text-primary);">Weeks 1-14:</strong> Regular Season</li>
+                    <li><strong style="color: var(--text-primary);">Week 15:</strong> Conference Championships</li>
+                    <li><strong style="color: var(--text-primary);">Week 16:</strong> CFP Round 1</li>
+                    <li><strong style="color: var(--text-primary);">Week 17:</strong> CFP Quarterfinals</li>
+                    <li><strong style="color: var(--text-primary);">Week 18:</strong> CFP Semifinals</li>
+                    <li><strong style="color: var(--text-primary);">Week 19:</strong> CFP Championship</li>
                 </ul>
             </div>
         </div>
@@ -98,15 +91,15 @@
 
 <script>
 function toggleRoundName() {
-    // Optional: You could auto-fill round name based on playoff checkbox
-    // For now, just make it more visible when playoff is checked
-    const checkbox = document.getElementById('is_playoff_week');
-    const roundNameGroup = document.getElementById('round_name_group');
-    
+    var checkbox = document.getElementById('is_playoff_week');
+    var roundNameGroup = document.getElementById('round_name_group');
+
     if (checkbox.checked) {
-        roundNameGroup.classList.add('border', 'border-warning', 'p-2', 'rounded');
+        roundNameGroup.style.borderLeft = '3px solid var(--color-primary)';
+        roundNameGroup.style.paddingLeft = '0.75rem';
     } else {
-        roundNameGroup.classList.remove('border', 'border-warning', 'p-2', 'rounded');
+        roundNameGroup.style.borderLeft = '';
+        roundNameGroup.style.paddingLeft = '';
     }
 }
 </script>

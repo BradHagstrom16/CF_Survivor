@@ -3,27 +3,27 @@
 {% block title %}Admin Dashboard - CFB Survivor Pool{% endblock %}
 
 {% block content %}
-<div class="admin-header mb-4">
-    <h1>🔧 Admin Dashboard</h1>
+<div class="mb-4">
+    <h1>Admin Dashboard</h1>
     <div class="alert alert-info">
-        <strong>Pool Status:</strong> 
+        <strong>Pool Status:</strong>
         {{ active_users }} active players out of {{ total_users }} total
     </div>
 </div>
 
 <div class="row">
-    <div class="col-md-8">
+    <div class="col-lg-8">
         <div class="card">
-            <div class="card-header bg-dark text-white">
-                <h4>Season Weeks</h4>
+            <div class="card-header">
+                <h4 class="mb-0">Season Weeks</h4>
             </div>
             <div class="card-body">
                 <a href="{{ url_for('admin.create_week') }}" class="btn btn-success mb-3">
-                    ➕ Create New Week
+                    + Create New Week
                 </a>
 
                 <div class="table-responsive">
-                <table class="table table-striped">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Week</th>
@@ -41,17 +41,17 @@
                             <td>{{ format_deadline(week.deadline) }}</td>
                             <td>
                                 {% if week.is_active %}
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="status-badge status-won">Active</span>
                                 {% elif week.is_complete %}
-                                    <span class="badge bg-secondary">Complete</span>
+                                    <span class="status-badge status-locked">Complete</span>
                                 {% else %}
-                                    <span class="badge bg-warning">Inactive</span>
+                                    <span class="status-badge status-pending">Inactive</span>
                                 {% endif %}
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <a href="{{ url_for('admin.manage_games', week_id=week.id) }}"
-                                       class="btn btn-primary">Games</a>
+                                       class="btn btn-primary btn-sm">Games</a>
 
                                     {% if not week.is_active %}
                                         <form method="POST" action="{{ url_for('admin.activate_week', week_id=week.id) }}" class="d-inline">
@@ -64,14 +64,14 @@
                                         <a href="{{ url_for('admin.fetch_scores', week_id=week.id) }}"
                                            class="btn btn-info btn-sm">Fetch Scores</a>
                                         <a href="{{ url_for('admin.mark_results', week_id=week.id) }}"
-                                           class="btn btn-warning">Results</a>
+                                           class="btn btn-warning btn-sm">Results</a>
                                     {% endif %}
                                 </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center">No weeks created yet</td>
+                            <td colspan="5" class="text-center" style="color: var(--text-muted);">No weeks created yet</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -80,13 +80,13 @@
             </div>
         </div>
 
-        <!-- Auto-Pick Management Card -->
+        <!-- Auto-Pick Management -->
         <div class="card mt-3">
-            <div class="card-header bg-warning text-dark">
-                <h4>Auto-Pick Management</h4>
+            <div class="card-header" style="border-left: 4px solid var(--status-warning);">
+                <h4 class="mb-0">Auto-Pick Management</h4>
             </div>
             <div class="card-body">
-                <p>Trigger auto-picks for any week past its deadline.</p>
+                <p style="color: var(--text-secondary);">Trigger auto-picks for any week past its deadline.</p>
 
                 <div class="list-group">
                     {% for week in weeks %}
@@ -94,7 +94,7 @@
                             <div class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
                                     <strong>Week {{ week.week_number }}</strong>
-                                    <small class="text-muted">
+                                    <small style="color: var(--text-muted);">
                                         Deadline: {{ format_deadline(week.deadline) }}
                                     </small>
                                 </div>
@@ -104,7 +104,7 @@
                                         Process Auto-picks
                                     </a>
                                 {% else %}
-                                    <span class="badge bg-secondary">Complete</span>
+                                    <span class="status-badge status-locked">Complete</span>
                                 {% endif %}
                             </div>
                         {% endif %}
@@ -113,39 +113,29 @@
             </div>
         </div>
     </div>
-    
-    <div class="col-md-4">
+
+    <div class="col-lg-4">
         <div class="card">
-            <div class="card-header bg-dark text-white">
-                <h4>Quick Actions</h4>
+            <div class="card-header">
+                <h4 class="mb-0">Quick Actions</h4>
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('admin.create_week') }}" class="btn btn-primary">
-                        📅 Create New Week
-                    </a>
-                    <a href="{{ url_for('admin.manage_teams') }}" class="btn btn-outline-primary">
-                        🏈 Manage Teams
-                    </a>
-                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
-                        👥 View Public Standings
-                    </a>
-                    <a href="{{ url_for('admin.users') }}" class="btn btn-info">
-                        Manage Users
-                    </a>
-                    <a href="{{ url_for('admin.payments') }}" class="btn btn-success">
-                        Track Payments
-                    </a>
+                    <a href="{{ url_for('admin.create_week') }}" class="btn btn-primary">Create New Week</a>
+                    <a href="{{ url_for('admin.manage_teams') }}" class="btn btn-secondary">Manage Teams</a>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">View Standings</a>
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">Manage Users</a>
+                    <a href="{{ url_for('admin.payments') }}" class="btn btn-secondary">Track Payments</a>
                 </div>
             </div>
         </div>
-        
+
         <div class="card mt-3">
-            <div class="card-header bg-info text-white">
-                <h4>How to Run Your Pool</h4>
+            <div class="card-header">
+                <h4 class="mb-0">How to Run Your Pool</h4>
             </div>
             <div class="card-body">
-                <ol class="small">
+                <ol class="small mb-0" style="color: var(--text-secondary);">
                     <li>Create a new week</li>
                     <li>Add games with point spreads</li>
                     <li>Activate the week to allow picks</li>

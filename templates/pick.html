@@ -2,176 +2,229 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-8">
-        <h2>Make Your Pick - {{ get_week_display_name(week) }}</h2>
-        
+    <div class="col-lg-8">
+        <h2>{{ get_week_display_name(week) }} &mdash; Make Your Pick</h2>
+
         <div class="alert alert-warning">
             <strong>Deadline:</strong> {{ format_deadline(week.deadline) }}
         </div>
-        
-         {% if existing_pick %}
-    <div class="alert alert-success">
-        <h5>Current Pick: {{ existing_pick.team.name }}</h5>
-        <small>
-            {% if pick_locked %}
-                Your pick is locked and cannot be changed.
-            {% else %}
-                You can update your pick anytime before the deadline or before your chosen team's game begins, whichever comes first.
-            {% endif %}
-        </small>
-    </div>
 
-    {% if pick_locked %}
-    <div class="alert alert-danger">
-        <strong>Your pick is locked!</strong> The {{ existing_pick.team.name }} game has already started.
-    </div>
-    {% endif %}
-    {% endif %}
-
-        {% if not pick_locked %}
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <div class="mb-3">
-                <label class="form-label">
-                    {% if existing_pick %}
-                        Change your pick for this week:
-                    {% else %}
-                        Select your team for this week:
-                    {% endif %}
-                </label>
-                
-                {% if eligible_teams %}
-                    <select name="team_id" class="form-select" required>
-                        <option value="">-- Choose a Team --</option>
-                        {% for team in eligible_teams | sort(attribute='name') %}
-                            <option value="{{ team.id }}"
-                                {% if existing_pick and existing_pick.team_id == team.id %}selected{% endif %}>
-                                {{ team.name }}
-                                {% if team.id in team_spreads %}
-                                    ({{ "%+.1f"|format(team_spreads[team.id]) }})
-                                {% endif %}
-                                {% if existing_pick and existing_pick.team_id == team.id %} - Current Pick{% endif %}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    
-                    <div class="mt-3">
-                        {% if existing_pick %}
-                            <button type="submit" class="btn btn-warning">Update Pick</button>
-                        {% else %}
-                            <button type="submit" class="btn btn-primary">Submit Pick</button>
-                        {% endif %}
-                        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Cancel</a>
-                    </div>
-                {% else %}
-                    <div class="alert alert-danger">
-                        No eligible teams available! You may have used all available teams 
-                        or all remaining teams are favored by more than 16 points.
-                    </div>
-                {% endif %}
-            </div>
-        </form>
-        {% endif %}
-        
-        <div class="mt-4">
-            <h4>{{ get_week_display_name(week) }} Games</h4>
-            <p class="text-muted">Showing matchups for teams you can pick (not favored by more than 16 points and not previously picked)</p>
-            
-            <div class="row">
-                {% if existing_pick and pick_locked %}
-                <!-- Show the locked pick's game separately -->
-                {% for game in games %}
-                {% if (game.home_team and existing_pick.team_id == game.home_team.id) or 
-              (game.away_team and existing_pick.team_id == game.away_team.id) %}
-        <div class="col-md-6 mb-3">
-            <div class="card border-danger border-2">
-                <div class="card-body">
-                    <h6 class="card-title">
-                        {{ game.get_away_team_display() }} @ {{ game.get_home_team_display() }}
-                    </h6>
-                    <p class="card-text small">
-                        {% if game._aware_time %}{{ game._aware_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
-                        <span class="badge bg-dark ms-1">LOCKED - GAME STARTED</span>
-                        <br>
-                        Spread: 
-                        {% if game.home_team_spread < 0 %}
-                            {{ game.get_home_team_display() }} {{ game.home_team_spread }}
-                        {% else %}
-                            {{ game.get_away_team_display() }} -{{ game.home_team_spread }}
-                        {% endif %}
-                    </p>
-                    <div>
-                        <span class="badge bg-danger">
-                            {{ existing_pick.team.name }} - PICK LOCKED
-                        </span>
+        {% if existing_pick %}
+        <div class="current-week-box" style="border-left-color: var(--status-alive);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;">Current Pick</span>
+                    <div style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; text-transform: uppercase;">
+                        {{ existing_pick.team.name }}
                     </div>
                 </div>
+                {% if pick_locked %}
+                    <span class="status-badge status-locked">LOCKED &mdash; GAME STARTED</span>
+                {% else %}
+                    <span style="color: var(--text-secondary); font-size: 0.85rem;">You can change your pick below.</span>
+                {% endif %}
             </div>
         </div>
         {% endif %}
-    {% endfor %}
-{% endif %}
+
+        {% if not pick_locked %}
+        <form method="POST" id="pickForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="team_id" id="selectedTeamId" value="{% if existing_pick %}{{ existing_pick.team_id }}{% endif %}"/>
+
+            {% if eligible_teams %}
+            <h4 class="mt-4 mb-3">Select Your Team</h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Tap a team to select it. Unavailable teams are shown grayed out.</p>
+
+            <!-- Game cards with tappable team selection -->
+            <div class="pick-games-list">
                 {% for game in week.games | sort(attribute='game_time') %}
-                    {% set home_display = game.get_home_team_display() %}
-                    {% set away_display = game.get_away_team_display() %}
-                    {% set home_is_eligible = game.home_team and game.home_team in eligible_teams %}
-                    {% set away_is_eligible = game.away_team and game.away_team in eligible_teams %}
-                    
-                    {% if home_is_eligible or away_is_eligible %}
-                    <div class="col-md-6 mb-3">
-                        <div class="card {% if existing_pick and ((game.home_team and existing_pick.team_id == game.home_team.id) or (game.away_team and existing_pick.team_id == game.away_team.id)) %}border-success border-2{% endif %}">
-                            <div class="card-body">
-                                <h6 class="card-title">
-                                    {{ away_display }} @ {{ home_display }}
-                                </h6>
-                                <p class="card-text small">
-                                    {% if game._aware_time %}{{ game._aware_time.strftime('%m/%d %I:%M %p') }}{% else %}TBD{% endif %}
-                                    {% if game._aware_time and game._aware_time < current_time %}
-                                    <span class="badge bg-dark ms-1">LOCKED</span>
-                                     {% endif %}
-                                     <br>
-                                    Spread: 
-                                    {% if game.home_team_spread < 0 %}
-                                        {{ home_display }} {{ game.home_team_spread }}
-                                    {% else %}
-                                        {{ away_display }} -{{ game.home_team_spread }}
-                                    {% endif %}
-                                </p>
-                                <div>
-                                    {% if away_is_eligible %}
-                                        <span class="badge {% if existing_pick and existing_pick.team_id == game.away_team.id %}bg-success{% else %}bg-primary{% endif %}">
-                                            {{ away_display }} 
-                                            {% if existing_pick and existing_pick.team_id == game.away_team.id %}✓ SELECTED{% else %}available{% endif %}
-                                        </span>
-                                    {% endif %}
-                                    {% if home_is_eligible %}
-                                        <span class="badge {% if existing_pick and existing_pick.team_id == game.home_team.id %}bg-success{% else %}bg-primary{% endif %}">
-                                            {{ home_display }} 
-                                            {% if existing_pick and existing_pick.team_id == game.home_team.id %}✓ SELECTED{% else %}available{% endif %}
-                                        </span>
-                                    {% endif %}
-                                </div>
-                            </div>
+                    {% set home_team = game.home_team %}
+                    {% set away_team = game.away_team %}
+                    {% set home_eligible = home_team and home_team in eligible_teams %}
+                    {% set away_eligible = away_team and away_team in eligible_teams %}
+                    {% set home_used = home_team and home_team.id in used_team_ids %}
+                    {% set away_used = away_team and away_team.id in used_team_ids %}
+                    {% set game_started = game._aware_time and game._aware_time < current_time %}
+                    {% set has_eligible = home_eligible or away_eligible %}
+                    {% set has_relevant_team = has_eligible or (home_team and home_team.id in used_team_ids) or (away_team and away_team.id in used_team_ids) %}
+
+                    {% if has_relevant_team or has_eligible %}
+                    <div class="pick-card {% if game_started %}pick-locked{% endif %} {% if existing_pick and ((home_team and existing_pick.team_id == home_team.id) or (away_team and existing_pick.team_id == away_team.id)) %}pick-selected{% endif %}">
+                        <div class="game-matchup">
+                            {{ game.get_away_team_display() }} <span style="color: var(--text-muted); font-weight: 400; font-size: 0.85em;">@</span> {{ game.get_home_team_display() }}
                         </div>
+                        <div class="game-meta">
+                            {% if game._aware_time %}{{ game._aware_time.strftime('%a %m/%d %I:%M %p') }}{% else %}TBD{% endif %}
+                            {% if game_started %}
+                                <span class="status-badge status-locked ms-1" style="font-size: 0.65rem;">STARTED</span>
+                            {% endif %}
+                            <span style="margin-left: 0.5rem;">
+                                Spread:
+                                {% if game.home_team_spread < 0 %}
+                                    {{ game.get_home_team_display() }} {{ game.home_team_spread }}
+                                {% else %}
+                                    {{ game.get_away_team_display() }} -{{ game.home_team_spread }}
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <!-- Away team option -->
+                        {% if away_team %}
+                        <div class="team-option {% if away_eligible %}{% if existing_pick and existing_pick.team_id == away_team.id %}selected{% endif %}{% else %}disabled{% endif %}"
+                             {% if away_eligible %}data-team-id="{{ away_team.id }}" data-team-name="{{ away_team.name }}" data-team-spread="{{ team_spreads.get(away_team.id, 0) }}"{% endif %}>
+                            <div>
+                                <span class="team-name">{{ away_team.name }}</span>
+                                {% if not away_eligible %}
+                                    <span class="ineligible-reason ms-2">
+                                        {% if away_used %}Used{% elif game_started %}Started{% else %}Unavailable{% endif %}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            {% if away_team.id in team_spreads %}
+                            <span class="team-spread {% if team_spreads[away_team.id] < 0 %}spread-fav{% else %}spread-dog{% endif %}">
+                                {{ "%+.1f"|format(team_spreads[away_team.id]) }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Home team option -->
+                        {% if home_team %}
+                        <div class="team-option {% if home_eligible %}{% if existing_pick and existing_pick.team_id == home_team.id %}selected{% endif %}{% else %}disabled{% endif %}"
+                             {% if home_eligible %}data-team-id="{{ home_team.id }}" data-team-name="{{ home_team.name }}" data-team-spread="{{ team_spreads.get(home_team.id, 0) }}"{% endif %}>
+                            <div>
+                                <span class="team-name">{{ home_team.name }}</span>
+                                <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: 0.3rem;">(home)</span>
+                                {% if not home_eligible %}
+                                    <span class="ineligible-reason ms-2">
+                                        {% if home_used %}Used{% elif game_started %}Started{% else %}Unavailable{% endif %}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            {% if home_team.id in team_spreads %}
+                            <span class="team-spread {% if team_spreads[home_team.id] < 0 %}spread-fav{% else %}spread-dog{% endif %}">
+                                {{ "%+.1f"|format(team_spreads[home_team.id]) }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
                     {% endif %}
                 {% endfor %}
             </div>
-            
-            <hr class="my-4">
-            
-            <h5>Quick Reference: Available Teams ({{ eligible_teams|length }})</h5>
-            <div class="row">
-                {% for team in eligible_teams | sort(attribute='name') %}
-                    <div class="col-md-3 mb-2">
-                        <div class="badge {% if existing_pick and existing_pick.team_id == team.id %}bg-success{% else %}bg-primary{% endif %} w-100 p-2">
-                            {{ team.name }}
-                            {% if existing_pick and existing_pick.team_id == team.id %}✓{% endif %}
+
+            <!-- Confirmation bar -->
+            <div class="pick-confirm-bar" id="pickConfirmBar" style="{% if not existing_pick %}display: none;{% endif %}">
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;">Your pick:</span>
+                    <span class="pick-confirm-team" id="confirmTeamName">{% if existing_pick %}{{ existing_pick.team.name }}{% endif %}</span>
+                    <span class="scoreboard-pill ms-2" id="confirmTeamSpread" style="font-size: 0.85rem;">
+                        {% if existing_pick and existing_pick.team_id in team_spreads %}
+                            {{ "%+.1f"|format(team_spreads[existing_pick.team_id]) }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    {% if existing_pick %}
+                        <button type="submit" class="btn btn-warning">Update Pick</button>
+                    {% else %}
+                        <button type="submit" class="btn btn-primary" id="submitBtn">Submit Pick</button>
+                    {% endif %}
+                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </div>
+
+            {% else %}
+            <div class="alert alert-danger mt-3">
+                No eligible teams available. You may have used all available teams
+                or all remaining teams are favored by more than 16 points.
+            </div>
+            {% endif %}
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Quick Reference -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Available Teams ({{ eligible_teams|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if eligible_teams %}
+                <div class="row g-2">
+                    {% for team in eligible_teams | sort(attribute='name') %}
+                    <div class="col-12">
+                        <div style="background: {% if existing_pick and existing_pick.team_id == team.id %}rgba(197, 5, 12, 0.15){% else %}var(--bg-surface-alt){% endif %}; border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; display: flex; justify-content: space-between; align-items: center; {% if existing_pick and existing_pick.team_id == team.id %}border: 1px solid var(--color-primary);{% endif %}">
+                            <span style="font-size: 0.85rem;">{{ team.name }}</span>
+                            {% if team.id in team_spreads %}
+                            <span class="spread-value {% if team_spreads[team.id] < 0 %}spread-fav{% else %}spread-dog{% endif %}" style="font-size: 0.8rem;">
+                                {{ "%+.1f"|format(team_spreads[team.id]) }}
+                            </span>
+                            {% endif %}
                         </div>
                     </div>
-                {% endfor %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="color: var(--text-muted);">No eligible teams remaining.</p>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var teamOptions = document.querySelectorAll('.team-option:not(.disabled)');
+    var hiddenInput = document.getElementById('selectedTeamId');
+    var confirmBar = document.getElementById('pickConfirmBar');
+    var confirmName = document.getElementById('confirmTeamName');
+    var confirmSpread = document.getElementById('confirmTeamSpread');
+    var submitBtn = document.getElementById('submitBtn');
+    var form = document.getElementById('pickForm');
+
+    teamOptions.forEach(function(option) {
+        option.addEventListener('click', function() {
+            var teamId = this.getAttribute('data-team-id');
+            var teamName = this.getAttribute('data-team-name');
+            var teamSpread = parseFloat(this.getAttribute('data-team-spread'));
+
+            // Deselect all
+            document.querySelectorAll('.team-option.selected').forEach(function(el) {
+                el.classList.remove('selected');
+            });
+            document.querySelectorAll('.pick-card.pick-selected').forEach(function(el) {
+                el.classList.remove('pick-selected');
+            });
+
+            // Select this one
+            this.classList.add('selected');
+            this.closest('.pick-card').classList.add('pick-selected');
+
+            // Update hidden input
+            hiddenInput.value = teamId;
+
+            // Update confirmation bar
+            confirmName.textContent = teamName;
+            var spreadStr = (teamSpread >= 0 ? '+' : '') + teamSpread.toFixed(1);
+            confirmSpread.textContent = spreadStr;
+            confirmBar.style.display = '';
+        });
+    });
+
+    // Prevent submit without selection
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!hiddenInput.value) {
+                e.preventDefault();
+                alert('Please select a team first.');
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

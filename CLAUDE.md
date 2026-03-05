@@ -22,7 +22,7 @@ The following Claude Code plugins are installed and enabled. Use them proactivel
 
 ## Project Overview
 
-CF Survivor Pool is a college football survivor pool web app. Players pick one team per week to win against the spread. Two lives, cumulative spread tiebreaker, single-use teams per regular season (resets for CFP), and full College Football Playoff support. Deployed on PythonAnywhere with SQLite.
+CF Survivor Pool is a college football survivor pool web app. Players pick one team per week to win outright. Two lives, cumulative spread tiebreaker, single-use teams per regular season (resets for CFP), and full College Football Playoff support. Deployed on PythonAnywhere with SQLite.
 
 ## Commands
 
@@ -96,17 +96,23 @@ flask db current
 - `services/automation.py` — `run_setup()`, `run_spread_update()`, `run_scores()`, `run_status()`. CLI orchestration.
 - `services/score_fetcher.py` — `ScoreFetcher` class. The Odds API integration for scores.
 
-**Frontend:** Jinja2 templates with Bootstrap 5.3. No build step. Custom CSS in `static/css/style.css`.
+**Frontend:** Jinja2 templates with Bootstrap 5.3 + "Fourth & Goal" design system. No build step.
+- `static/css/style.css` — Full design system with CSS custom properties (design tokens at `:root`), Bootstrap overrides, and custom components. Dark theme: midnight backgrounds, crimson accents, gold CTAs.
+- Google Fonts: Teko (display/headings) + Source Sans 3 (body/data). Loaded via CDN in `base.html`.
+- Mobile strategy: dual-render pattern — `d-none d-md-block` for desktop tables, `d-md-none` for mobile cards. No horizontal scroll.
+- Pick submission uses card-based team selection (not dropdown). JS in `pick.html` handles card tap → hidden input → form submit.
+- Nav active states use `request.endpoint` checks in `base.html` (no per-template variable needed).
 
 ## Critical Domain Logic
 
 **Game Rules:**
 - 49 teams from preseason AP Top 25 and surrounding teams
-- Two lives per player — incorrect pick against the spread loses a life
+- Players pick one team per week to win outright — if the team wins, the pick is correct; if the team loses, the player loses a life
+- Two lives per player — losing a pick costs a life; 0 lives = eliminated
 - Single use — each team picked once per regular season; resets for CFP
-- 16-point cap — teams favored by 16.5+ are ineligible
+- 16-point cap — teams favored by 16.5+ are ineligible to be picked
 - Auto-picks — miss deadline and system picks biggest available favorite (<=16 pts)
-- Cumulative spread tiebreaker — lower is better (favorites add, underdogs subtract)
+- Cumulative spread tiebreaker — used only to break ties; lower is better (favorites add, underdogs subtract). The spread does NOT determine pick correctness — only the outright game result does.
 
 **Revival Rule (`process_week_results()` in `services/game_logic.py`):**
 - If every remaining 1-life player loses in the same week, all are revived to 1 life
@@ -116,7 +122,7 @@ flask db current
 - `display_utils.py` tracks CFP eliminations via game results
 
 **Pick Resolution:**
-- Picks are correct/incorrect based on `Game.home_team_won` — the ATS winner
+- Picks are correct or incorrect based on `Game.home_team_won` — the outright game winner
 - Losing a pick decrements `User.lives_remaining`; reaching 0 sets `User.is_eliminated = True`
 
 ## Key Conventions
@@ -129,7 +135,7 @@ flask db current
 - ORM safety: never mutate ORM attributes for display — use transient attrs (`game._aware_time`, `week._aware_deadline`)
 - Template context: `display_utils.py` injects `get_week_display_name`, `get_week_short_label`, `is_week_playoff`, `format_deadline` globally
 - Helper: `get_game_for_team(week_id, team_id)` in `services/game_logic.py` — finds a team's game
-- Helper: `Game.get_spread_for_team(team_id)` — returns spread from team's perspective
+- Helper: `Game.get_spread_for_team(team_id)` — returns spread from team's perspective (used for tiebreaker tracking and eligibility cap, not pick correctness)
 - Flask-Limiter rate-limits login to 10/min
 - CSRF via Flask-WTF on all forms; AJAX calls include `X-CSRFToken` header
 - Open redirect prevention: login rejects absolute URLs in `next` param

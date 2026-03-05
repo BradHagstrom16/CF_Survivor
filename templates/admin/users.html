@@ -6,16 +6,17 @@
 <h2>User Management</h2>
 
 <div class="alert alert-info">
-    <strong>Note:</strong> Passwords are encrypted for security and cannot be viewed. 
+    <strong>Note:</strong> Passwords are encrypted and cannot be viewed.
     You can only reset them to a new value.
 </div>
 
 <div class="card">
-    <div class="card-header bg-dark text-white">
-        <h4>Registered Users ({{ users|length }})</h4>
+    <div class="card-header">
+        <h4 class="mb-0">Registered Users ({{ users|length }})</h4>
     </div>
-    <div class="card-body">
-        <table class="table table-striped">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
             <thead>
                 <tr>
                     <th>Username</th>
@@ -28,29 +29,40 @@
             <tbody>
                 {% for user in users %}
                 <tr>
-                    <td><strong>{{ user.display_name }}</strong>
-   {% if user.username != user.display_name %}
-       <small class="text-muted">({{ user.username }})</small>
-   {% endif %}</td>
+                    <td>
+                        <strong>{{ user.display_name }}</strong>
+                        {% if user.username != user.display_name %}
+                            <small style="color: var(--text-muted);">({{ user.username }})</small>
+                        {% endif %}
+                    </td>
                     <td>{{ user.email }}</td>
-                    <td>{{ user.lives_remaining }}</td>
+                    <td>
+                        <span class="lives-pips">
+                            {% for i in range(user.lives_remaining) %}
+                                <span class="life-pip alive"></span>
+                            {% endfor %}
+                            {% for i in range(2 - user.lives_remaining) %}
+                                <span class="life-pip lost"></span>
+                            {% endfor %}
+                        </span>
+                    </td>
                     <td>
                         {% if user.is_eliminated %}
-                            <span class="badge bg-danger">Eliminated</span>
+                            <span class="status-badge status-lost">OUT</span>
                         {% else %}
-                            <span class="badge bg-success">Active</span>
+                            <span class="status-badge status-won">Active</span>
                         {% endif %}
                     </td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-warning" 
-                                data-bs-toggle="modal" 
+                        <button type="button" class="btn btn-sm btn-warning"
+                                data-bs-toggle="modal"
                                 data-bs-target="#resetModal{{ user.id }}">
                             Reset Password
                         </button>
                     </td>
                 </tr>
-                
-                <!-- Password Reset Modal for this user -->
+
+                <!-- Password Reset Modal -->
                 <div class="modal fade" id="resetModal{{ user.id }}" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -62,14 +74,14 @@
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <div class="modal-body">
                                     <div class="alert alert-warning">
-                                        You're about to reset the password for <strong>{{ user.username }}</strong>
+                                        Resetting password for <strong>{{ user.username }}</strong>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">New Password</label>
-                                        <input type="text" class="form-control" name="new_password" 
+                                        <input type="text" class="form-control" name="new_password"
                                                value="survivor{{ user.id }}" required>
-                                        <small class="text-muted">
-                                            Default suggestion: survivor{{ user.id }}
+                                        <small class="form-text">
+                                            Default: survivor{{ user.id }}
                                         </small>
                                     </div>
                                 </div>
@@ -84,10 +96,11 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 
 <div class="mt-3">
-    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">&larr; Back to Dashboard</a>
 </div>
 {% endblock %}

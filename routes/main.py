@@ -260,6 +260,7 @@ def make_pick(week_number):
         current_time=current_time,
         pick_locked=pick_locked,
         team_spreads=team_spreads,
+        used_team_ids=used_team_ids,  # UI/UX UPGRADE: show ineligible teams with "Used" reason
     )
 
 
@@ -528,6 +529,13 @@ def weekly_results(week_number=None):
         if user_statuses[user.id]['eliminated_week'] == week.week_number
     ]
 
+    # UI/UX UPGRADE: extract current user's pick for "Your Pick" highlight section
+    current_user_pick = None
+    if current_user.is_authenticated:
+        current_user_pick = next(
+            (p for p in picks if p.user_id == current_user.id), None
+        )
+
     return render_template(
         'weekly_results.html',
         week=week,
@@ -539,6 +547,7 @@ def weekly_results(week_number=None):
         game_results=game_results,
         users_no_pick=users_no_pick,
         eliminated_this_week=eliminated_this_week,
+        current_user_pick=current_user_pick,
         format_deadline=format_deadline,
         timezone=POOL_TZ_NAME,
     )
